@@ -1,0 +1,1 @@
+console.log("Judol Detector content script loaded.");
