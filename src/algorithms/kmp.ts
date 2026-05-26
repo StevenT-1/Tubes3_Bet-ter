@@ -56,7 +56,7 @@ export function searchKMP (
 
         let b: number[] = borderFunction(keyword);
         let tIdx = 0;
-        let keyIdx = 1;
+        let keyIdx = 0;
         let keyl = keyword.length;
         let tl = sText.length;
 
