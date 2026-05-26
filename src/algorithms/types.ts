@@ -13,17 +13,20 @@ export type MatchSource =
 export interface MatchResult {
   keyword: string;
   matchedText: string;
-  algorithm: MatchAlgorithm;
-  source: MatchSource;
 
   startIndex?: number;
   endIndex?: number;
-
-  executionTimeMs: number;
-  comparisonCount?: number;
 
   distance?: number;
   similarity?: number;
 }
 
 export function matchResultGenerator(){}
+export interface AlgorithmResult {
+  matches: MatchResult[];
+  executionTimeMs: number;
+  comparisonCount: number;
+
+  algorithm: MatchAlgorithm;
+  source: MatchSource;
+}
