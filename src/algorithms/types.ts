@@ -51,3 +51,22 @@ export function matchResultGenerator(
   }
   return res;
 }
+
+export function algorithmResultGenerator(
+  matches: MatchResult[],
+  executionTimeMs: number,
+  comparisonCount: number,
+  algorithm: MatchAlgorithm,
+  source: MatchSource,
+): AlgorithmResult
+{
+  let res: AlgorithmResult =
+  {
+    matches,
+    executionTimeMs,
+    comparisonCount,
+    algorithm,
+    source
+  }
+  return res;
+}
