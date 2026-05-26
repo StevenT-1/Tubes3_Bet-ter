@@ -47,22 +47,23 @@ export function searchKMP (
     for (keyword of keywords)
     {
         let sText: string = text;
+        let cKeyword: string = keyword;
         let resIdx: number[] = [];
         if (caseInsensitive)
         {
-            keyword.toLowerCase();
-            sText.toLowerCase();
+            cKeyword = keyword.toLowerCase();
+            sText = sText.toLowerCase();
         }
 
-        let b: number[] = borderFunction(keyword);
+        let b: number[] = borderFunction(cKeyword);
         let tIdx = 0;
         let keyIdx = 0;
-        let keyl = keyword.length;
+        let keyl = cKeyword.length;
         let tl = sText.length;
 
         while (tIdx < tl)
         {
-            if (keyword[keyIdx] == sText[tIdx])
+            if (cKeyword[keyIdx] == sText[tIdx])
             {
                 if (keyIdx >= keyl - 1)
                 {
@@ -93,7 +94,7 @@ export function searchKMP (
             (
                 matchResultGenerator
                 (
-                    keyword,
+                    cKeyword,
                     text.slice(r, r + keyl),
                     r,
                     r + keyl - 1
