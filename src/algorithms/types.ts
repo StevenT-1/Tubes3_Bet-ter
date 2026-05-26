@@ -1,3 +1,4 @@
+import { MatchResult } from './types';
 export type MatchAlgorithm =
   | "KMP"
   | "Boyer-Moore"
@@ -25,3 +26,5 @@ export interface MatchResult {
   distance?: number;
   similarity?: number;
 }
+
+export function matchResultGenerator(){}
