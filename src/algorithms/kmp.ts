@@ -32,11 +32,77 @@ function borderFunction (keyword: string): number[]
 }
 
 export function searchKMP (
-    keyword: string,
+    keywords: string[],
     text: string,
     sourceType: MatchSource,
-    searchMode: boolean
+    caseInsensitive: boolean
 )
 {
-    ;
+    let finRes: MatchResult[][] = [];
+    let keyword:string;
+    let keyCount = 0;
+    for (keyword of keywords)
+    {
+        let sText: string = text;
+        let resIdx: number[] = [];
+        if (caseInsensitive)
+        {
+            keyword.toLowerCase();
+            sText.toLowerCase();
+        }
+
+        let b: number[] = borderFunction(keyword);
+        let tIdx = 0;
+        let keyIdx = 1;
+        let keyl = keyword.length;
+        let tl = sText.length;
+
+        while (tIdx < tl)
+        {
+            if (keyword[keyIdx] == sText[tIdx])
+            {
+                if (keyIdx >= keyl - 1)
+                {
+                    resIdx.push(tIdx - keyl + 1);
+                    keyIdx = -1;
+                }
+                ++keyIdx;
+                ++tIdx;
+            }
+            else
+            {
+                if (keyIdx > 0)
+                {
+                    keyIdx = b[keyIdx - 1];
+                }
+                else
+                {
+                    ++tIdx;
+                }
+            }
+        }
+
+        for (let r of resIdx)
+        {
+            // finRes[keyCount].push
+            // (
+            //     {
+            //         keyword: keyword
+            //         matchedText: text[r:(r+keyl)],
+            //         algorithm: MatchAlgorithm,
+            //         source: MatchSource,
+
+            //         startIndex?: number,
+            //         endIndex?: number,
+
+            //         executionTimeMs: number,
+            //         comparisonCount?: number,
+
+            //         distance?: number,
+            //         similarity?: number,
+            //     }
+            // )
+        }
+
+    }
 }
