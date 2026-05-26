@@ -1,4 +1,4 @@
-import { MatchResult, MatchSource } from './types';
+import { MatchResult, MatchSource, matchResultGenerator } from './types';
 
 function borderFunction (keyword: string): number[]
 {

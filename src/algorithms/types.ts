@@ -1,4 +1,3 @@
-import { MatchResult } from './types';
 export type MatchAlgorithm =
   | "KMP"
   | "Boyer-Moore"
