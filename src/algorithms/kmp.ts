@@ -1,4 +1,5 @@
 import { MatchResult, MatchSource, matchResultGenerator } from './types';
+import {performance} from "perf_hooks"
 
 function borderFunction (keyword: string): number[]
 {
@@ -43,6 +44,7 @@ export function searchKMP (
     let keyCount = 0;
     for (keyword of keywords)
     {
+        let start = performance.now();
         let sText: string = text;
         let resIdx: number[] = [];
         if (caseInsensitive)
@@ -81,28 +83,8 @@ export function searchKMP (
                 }
             }
         }
+        let end = performance.now();
 
-        for (let r of resIdx)
-        {
-            // finRes[keyCount].push
-            // (
-            //     {
-            //         keyword: keyword
-            //         matchedText: text[r:(r+keyl)],
-            //         algorithm: MatchAlgorithm,
-            //         source: MatchSource,
-
-            //         startIndex?: number,
-            //         endIndex?: number,
-
-            //         executionTimeMs: number,
-            //         comparisonCount?: number,
-
-            //         distance?: number,
-            //         similarity?: number,
-            //     }
-            // )
-        }
-
+        ++keyCount;
     }
 }

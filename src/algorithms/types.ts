@@ -20,8 +20,6 @@ export interface MatchResult {
   distance?: number;
   similarity?: number;
 }
-
-export function matchResultGenerator(){}
 export interface AlgorithmResult {
   matches: MatchResult[];
   executionTimeMs: number;
@@ -29,4 +27,27 @@ export interface AlgorithmResult {
 
   algorithm: MatchAlgorithm;
   source: MatchSource;
+}
+
+export function matchResultGenerator(
+  keyword: string,
+  matchedText: string,
+
+  startIndex?: number,
+  endIndex?: number,
+
+  distance?: number,
+  similarity?: number,
+): MatchResult
+{
+  let res: MatchResult =
+  {
+    keyword: keyword,
+    matchedText: matchedText,
+    startIndex: startIndex,
+    endIndex: endIndex,
+    distance: distance,
+    similarity: similarity,
+  }
+  return res;
 }
