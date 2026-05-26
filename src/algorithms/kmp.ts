@@ -1,5 +1,4 @@
 import { MatchResult, MatchSource, matchResultGenerator, AlgorithmResult, algorithmResultGenerator } from './types';
-import {performance} from "perf_hooks"
 
 function borderFunction (keyword: string): number[]
 {
