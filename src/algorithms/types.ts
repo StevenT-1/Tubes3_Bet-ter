@@ -10,7 +10,7 @@ export type MatchSource =
   | "dom-text"
   | "image-ocr";
 
-export interface MatchResult {
+export type MatchResult = {
   keyword: string;
   matchedText: string;
 
@@ -20,7 +20,7 @@ export interface MatchResult {
   distance?: number;
   similarity?: number;
 }
-export interface AlgorithmResult {
+export type AlgorithmResult = {
   matches: MatchResult[];
   executionTimeMs: number;
   comparisonCount: number;
