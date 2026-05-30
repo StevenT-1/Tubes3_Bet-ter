@@ -118,6 +118,8 @@ Berbeda dari Levenshtein biasa, versi weighted memberikan biaya substitusi yang 
 
 Dengan pendekatan ini, sistem dapat mendeteksi kata yang sengaja dimanipulasi agar terlihat berbeda tetapi masih mirip secara visual.
 
+Aturan fuzzy dibuat konservatif dan tidak ditampilkan sebagai pengaturan pengguna: kandidat diterima jika weighted distance lebih kecil dari seperempat panjang token kandidat.
+
 ---
 
 ### 5. Rabin-Karp
