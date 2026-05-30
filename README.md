@@ -343,22 +343,20 @@ Keterangan singkat:
 
 ## Author
 
-Kelompok: `<Nama Kelompok>`
+Kelompok: `Tubes3_Bet-ter`
 
 Anggota:
 
-| Nama       | NIM       | Tugas               |
-| ---------- | --------- | ------------------- |
-| `<Nama 1>` | `<NIM 1>` | `<Pembagian tugas>` |
-| `<Nama 2>` | `<NIM 2>` | `<Pembagian tugas>` |
-| `<Nama 3>` | `<NIM 3>` | `<Pembagian tugas>` |
-
----
+| Nama       | NIM       |
+| ---------- | --------- |
+| `Ishak Palentino Napitupulu` | `13524022` |
+| `Steven Tan` | `13524060` |
+| `Marcel Luther Sitorus` | `13524063` |
 
 ## Link Repository
 
 ```text
-https://github.com/<username>/<nama-repository>
+https://github.com/StevenT-1/Tubes3_Bet-ter
 ```
 
 ---
