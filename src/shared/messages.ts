@@ -1,5 +1,8 @@
 export const BETTER_SCAN_MESSAGE = "BETTER_SCAN";
 export const BETTER_CLEAR_MESSAGE = "BETTER_CLEAR";
+export const BETTER_OCR_REQUEST = "BETTER_OCR_REQUEST";
+export const BETTER_OCR_EXECUTE_REQUEST = "BETTER_OCR_EXECUTE_REQUEST";
+export const BETTER_OCR_RESPONSE = "BETTER_OCR_RESPONSE";
 export const BETTER_SETTINGS_KEY = "better.detector.settings";
 
 export type ScanSettings = {
@@ -40,6 +43,42 @@ export type ClearRequestMessage = {
 
 export type ExtensionMessage = ScanRequestMessage | ClearRequestMessage;
 
+export type OcrImageRequest = {
+  id: string;
+  src: string;
+  altText: string;
+};
+
+export type OcrRequestMessage = {
+  type: typeof BETTER_OCR_REQUEST;
+  images: OcrImageRequest[];
+};
+
+export type OcrExecuteRequestMessage = {
+  type: typeof BETTER_OCR_EXECUTE_REQUEST;
+  images: OcrImageRequest[];
+};
+
+export type OcrImageResponse = {
+  id: string;
+  text: string;
+  warning?: string;
+};
+
+export type OcrResponseMessage =
+  | {
+      type: typeof BETTER_OCR_RESPONSE;
+      ok: true;
+      results: OcrImageResponse[];
+      warnings: string[];
+    }
+  | {
+      type: typeof BETTER_OCR_RESPONSE;
+      ok: false;
+      error: string;
+      warnings?: string[];
+    };
+
 export type ScanSuccessResponse = {
   ok: true;
   url: string;
@@ -71,6 +110,6 @@ export type ClearResponse = {
 export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   highlight: true,
   blurText: false,
-  ocr: true,
+  ocr: false,
   fuzzyThreshold: 0.7,
 };
