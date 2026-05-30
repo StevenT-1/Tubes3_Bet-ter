@@ -202,6 +202,8 @@ export function tokenizeGraphemes(text: string): string[] {
     return Array.from(text);
 }
 
+const FIXED_COST_MODEL = createFixedCostModel();
+
 export function weightedLevenshtein(
     source: string,
     target: string,
@@ -215,7 +217,7 @@ export function weightedLevenshtein(
     const n = s.length;
     const m = t.length;
 
-    let costModel: Model.CostModel = createFixedCostModel();
+    const costModel = FIXED_COST_MODEL;
 
     let previous = new Array<number>(m + 1).fill(0);
     let current = new Array<number>(m + 1).fill(0);
@@ -241,78 +243,138 @@ export function weightedLevenshtein(
     return previous[m];
 }
 
+type TextToken = {
+    text: string;
+    normalizedText: string;
+    startIndex: number;
+    endIndex: number;
+    length: number;
+};
+
+const TOKEN_PATTERN = /[\p{L}\p{N}@$+_.-]+/gu;
+const SUSPICIOUS_TOKEN_PATTERN = /[0-9@$+_.-]|(.)\1/u;
+
+function tokenizeWords(text: string, caseInsensitive: boolean): TextToken[] {
+    const tokens: TextToken[] = [];
+    TOKEN_PATTERN.lastIndex = 0;
+
+    for (const match of text.matchAll(TOKEN_PATTERN)) {
+        const tokenText = match[0];
+        const startIndex = match.index ?? 0;
+
+        tokens.push({
+            text: tokenText,
+            normalizedText: caseInsensitive ? tokenText.toLowerCase() : tokenText,
+            startIndex,
+            endIndex: startIndex + tokenText.length - 1,
+            length: tokenizeGraphemes(tokenText).length,
+        });
+    }
+
+    return tokens;
+}
+
+function shouldCompareToken(keyword: string, token: TextToken): boolean {
+    if (token.length < 3 || token.normalizedText === keyword) {
+        return false;
+    }
+
+    const keywordLength = tokenizeGraphemes(keyword).length;
+    const lengthDifference = Math.abs(token.length - keywordLength);
+    const maxLengthDifference = Math.max(2, Math.ceil(keywordLength * 0.45));
+
+    if (lengthDifference > maxLengthDifference) {
+        return false;
+    }
+
+    return (
+        lengthDifference <= 2 ||
+        SUSPICIOUS_TOKEN_PATTERN.test(token.normalizedText)
+    );
+}
+
+function getCachedDistance(
+    cache: Map<string, number>,
+    keyword: string,
+    token: string,
+): number {
+    const cacheKey = `${keyword}\n${token}`;
+    const cachedDistance = cache.get(cacheKey);
+
+    if (cachedDistance !== undefined) {
+        return cachedDistance;
+    }
+
+    const distance = weightedLevenshtein(keyword, token);
+    cache.set(cacheKey, distance);
+    return distance;
+}
+
 export function searchWeightedLevenshtein (
     keywords: string[],
     text: string,
     sourceType: MatchSource,
-    caseInsensitive: boolean
+    caseInsensitive: boolean,
+    fuzzyThreshold = 0.7,
 ) : AlgorithmResult
 {
-    let start = performance.now();
-    let finRes: MatchResult[] = [];
-    let keyword:string;
-    let keyCount = 0;
+    const start = performance.now();
+    const finRes: MatchResult[] = [];
+    const tokens = tokenizeWords(text, caseInsensitive);
+    const distanceCache = new Map<string, number>();
+    const seenMatches = new Set<string>();
     let comparisonCount = 0;
-    for (keyword of keywords)
-    {
-        let sText: string = text;
-        let cKeyword: string = keyword;
-        let resIdx: number[] = [];
+
+    for (const keyword of keywords) {
+        let cKeyword = keyword;
         if (caseInsensitive)
         {
             cKeyword = keyword.toLowerCase();
-            sText = sText.toLowerCase();
         }
 
-        let keyl = cKeyword.length;
-        let tl = sText.length;
-        let tIdx = 0;
-        let word: string = "";
-        let wordStartIdx: number = 0;
-
-        while (tIdx <= tl)
-        {
-            if (sText[tIdx] != " " && tIdx != tl)
-            {
-                word = word + sText[tIdx];
-            }
-            else
-            {
-                if (word.length > 0)
-                {
-                    ++comparisonCount;
-                    // console.log(word);
-                    if (Math.abs(word.length - cKeyword.length) < 4)
-                    {
-                        if (weightedLevenshtein(cKeyword, word) < (word.length / 4))
-                        {
-                            resIdx.push(wordStartIdx);
-                        }
-                    }
-                    word = "";
-                    wordStartIdx = tIdx + 1;
-                }
-            }
-            ++tIdx;
+        if (cKeyword.length === 0) {
+            continue;
         }
 
-        for (let r of resIdx)
-        {
-            finRes.push
-            (
-                matchResultGenerator
-                (
+        for (const token of tokens) {
+            if (!shouldCompareToken(cKeyword, token)) {
+                continue;
+            }
+
+            comparisonCount += 1;
+            const distance = getCachedDistance(
+                distanceCache,
+                cKeyword,
+                token.normalizedText,
+            );
+            const similarity =
+                1 - distance / Math.max(cKeyword.length, token.normalizedText.length);
+
+            if (similarity < fuzzyThreshold) {
+                continue;
+            }
+
+            const matchKey = `${keyword}\n${token.startIndex}\n${token.endIndex}`;
+            if (seenMatches.has(matchKey)) {
+                continue;
+            }
+
+            seenMatches.add(matchKey);
+            finRes.push(
+                matchResultGenerator(
                     keyword,
-                    text.slice(r, r + keyl),
-                    r,
-                    r + keyl - 1
+                    token.text,
+                    token.startIndex,
+                    token.endIndex,
+                    distance,
+                    similarity,
                 )
-            )
+            );
         }
-        ++keyCount;
     }
-    let end = performance.now();
-    let algoRes: AlgorithmResult = (
+
+    const end = performance.now();
+    const algoRes: AlgorithmResult = (
         algorithmResultGenerator
         (
             finRes,

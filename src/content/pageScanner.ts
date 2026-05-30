@@ -28,6 +28,8 @@ export async function scanPage(settings: ScanSettings): Promise<ScanResponse> {
   const keywords = await loadKeywords();
   const algorithmOptions = {
     runRabinKarp: normalizedSettings.runRabinKarp,
+    runAhoCorasick: normalizedSettings.runAhoCorasick,
+    fuzzyThreshold: normalizedSettings.fuzzyThreshold,
   };
 
   clearTextMarks();
@@ -54,7 +56,7 @@ export async function scanPage(settings: ScanSettings): Promise<ScanResponse> {
   if (normalizedSettings.highlight || normalizedSettings.blurText) {
     markTextMatches(
       textNodes,
-      buildTextMatchAnnotations(detectionResults),
+      buildTextMatchAnnotations(algorithms, "dom-text"),
       normalizedSettings,
     );
   }
@@ -137,8 +139,13 @@ function findResultWithMatches(
 
 function buildTextMatchAnnotations(
   results: AlgorithmResult[],
+  source?: AlgorithmResult["source"],
 ): TextMatchAnnotation[] {
-  return results.flatMap((result) => {
+  const sourceResults = source
+    ? results.filter((result) => result.source === source)
+    : results;
+
+  return sourceResults.flatMap((result) => {
     const countsByKeyword = countMatchesByKeyword(result);
 
     return result.matches.flatMap((match) => {
@@ -200,9 +207,13 @@ function normalizeSettings(
       typeof settings?.runRabinKarp === "boolean"
         ? settings.runRabinKarp
         : DEFAULT_SCAN_SETTINGS.runRabinKarp,
+    runAhoCorasick:
+      typeof settings?.runAhoCorasick === "boolean"
+        ? settings.runAhoCorasick
+        : DEFAULT_SCAN_SETTINGS.runAhoCorasick,
     fuzzyThreshold:
       typeof settings?.fuzzyThreshold === "number"
-        ? Math.min(1, Math.max(0, settings.fuzzyThreshold))
+        ? Math.min(0.95, Math.max(0.5, settings.fuzzyThreshold))
         : DEFAULT_SCAN_SETTINGS.fuzzyThreshold,
   };
 }

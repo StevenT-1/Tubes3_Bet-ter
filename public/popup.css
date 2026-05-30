@@ -46,7 +46,7 @@ html {
   min-height: var(--popup-height);
   max-height: var(--popup-height);
   margin: 0;
-  overflow: hidden;
+  overflow: hidden auto;
   background: #000000;
 }
 
@@ -58,7 +58,7 @@ body {
   min-height: var(--popup-height);
   max-height: var(--popup-height);
   margin: 0;
-  overflow: hidden;
+  overflow: hidden auto;
   background: #000000;
   color: var(--color-text);
   font-family: var(--font-body);
@@ -81,7 +81,8 @@ button {
   max-width: var(--popup-width);
   min-height: var(--popup-height);
   max-height: var(--popup-height);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background-color: #ffffff;
   background-image: var(--image-page-bg);
   background-position: center;
@@ -90,6 +91,15 @@ button {
   border: 2px solid var(--color-border);
   transform: none;
   transform-origin: top left;
+}
+
+.popup-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.popup-container::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #777777;
 }
 
 .app-shell {
@@ -524,12 +534,14 @@ button {
   place-items: center;
   width: 40px;
   height: 17px;
+  padding: 0 2px;
   border: 0;
   border-radius: 999px;
   background: var(--color-threshold-bg);
   color: var(--color-text);
   font-size: 10px;
   line-height: 1;
+  text-align: center;
 }
 
 .glitch-button {

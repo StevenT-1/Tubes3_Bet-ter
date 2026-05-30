@@ -10,6 +10,7 @@ export type ScanSettings = {
   blurText: boolean;
   ocr: boolean;
   runRabinKarp: boolean;
+  runAhoCorasick: boolean;
   fuzzyThreshold: number;
 };
 
@@ -115,5 +116,6 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   blurText: false,
   ocr: false,
   runRabinKarp: false,
+  runAhoCorasick: false,
   fuzzyThreshold: 0.7,
 };

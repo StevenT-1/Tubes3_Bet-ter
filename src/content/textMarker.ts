@@ -10,6 +10,7 @@ const BLUR_CLASS = "better-judol-blur";
 const TEXT_VALUE_CLASS = "better-judol-mark-text";
 const STYLE_ID = "better-judol-highlight-style";
 const MAX_MARKED_NODES = 350;
+const MAX_TOOLTIP_ROWS = 4;
 const TOOLTIP_MARGIN_PX = 10;
 const TOOLTIP_OFFSET_PX = 14;
 
@@ -28,6 +29,12 @@ export type TextMatchAnnotation = {
   source: MatchSource;
   count: number;
   executionTimeMs: number;
+};
+
+type TooltipGroup = {
+  keyword: string;
+  matchedText: string;
+  annotations: TextMatchAnnotation[];
 };
 
 let activeTooltip: HTMLElement | null = null;
@@ -185,31 +192,191 @@ function createMarkedText(text: string): HTMLElement {
 }
 
 function formatTooltipAnnotations(annotations: TextMatchAnnotation[]): string {
+  const groups = groupTooltipAnnotations(annotations).sort(sortTooltipGroups);
+  const displayedGroups = groups.slice(0, MAX_TOOLTIP_ROWS);
+  const hiddenCount = Math.max(0, groups.length - displayedGroups.length);
+
+  if (displayedGroups.length === 0) {
+    return "Detected keyword";
+  }
+
+  if (displayedGroups.length === 1 && hiddenCount === 0) {
+    const group = displayedGroups[0];
+    return [
+      `Detected: ${group.matchedText}`,
+      `Algorithms: ${formatGroupAlgorithms(group)}`,
+      `Occurrences: ${formatGroupCount(group)}`,
+      `Time: ${formatGroupTimes(group)}`,
+    ].join("\n");
+  }
+
   const lines = ["Detected:"];
 
-  for (const annotation of annotations) {
+  for (const group of displayedGroups) {
     lines.push(
-      `- Keyword: ${annotation.keyword}`,
-      `  Matched text: ${annotation.matchedText}`,
-      `  Algorithm/source: ${annotation.algorithm} / ${formatSource(annotation.source)}`,
-      `  Occurrences: ${annotation.count}`,
-      `  Execution time: ${formatMs(annotation.executionTimeMs)}`,
+      `- ${group.matchedText} -> ${group.keyword}`,
+      `  ${formatGroupAlgorithms(group)} | ${formatGroupCount(group)}x | ${formatGroupTimes(group)}`,
     );
+  }
+
+  if (hiddenCount > 0) {
+    lines.push(`+ ${hiddenCount} more related detections`);
   }
 
   return lines.join("\n");
 }
 
-function formatSource(source: MatchSource): string {
-  return source === "dom-text" ? "DOM Text" : "Image OCR";
+function groupTooltipAnnotations(annotations: TextMatchAnnotation[]): TooltipGroup[] {
+  const groups = new Map<string, TooltipGroup>();
+
+  for (const annotation of annotations) {
+    const key = `${annotation.keyword.toLowerCase()}\n${annotation.matchedText.toLowerCase()}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.annotations.push(annotation);
+      continue;
+    }
+
+    groups.set(key, {
+      keyword: annotation.keyword,
+      matchedText: annotation.matchedText,
+      annotations: [annotation],
+    });
+  }
+
+  return [...groups.values()];
 }
 
-function formatMs(value: number): string {
+function sortTooltipGroups(first: TooltipGroup, second: TooltipGroup): number {
+  const priorityDifference = getGroupPriority(first) - getGroupPriority(second);
+
+  if (priorityDifference !== 0) {
+    return priorityDifference;
+  }
+
+  return first.keyword.localeCompare(second.keyword);
+}
+
+function getGroupPriority(group: TooltipGroup): number {
+  return Math.min(
+    ...group.annotations.map((annotation) => getAlgorithmPriority(annotation.algorithm)),
+  );
+}
+
+function getAlgorithmPriority(algorithm: MatchAlgorithm): number {
+  switch (algorithm) {
+    case "KMP":
+    case "Boyer-Moore":
+      return 1;
+    case "Regex":
+      return 2;
+    case "Rabin-Karp":
+    case "Aho-Corasick":
+      return 3;
+    case "Weighted-Levenshtein":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function formatGroupAlgorithms(group: TooltipGroup): string {
+  const labels = new Set<string>();
+
+  for (const annotation of sortTooltipAnnotations(group.annotations)) {
+    labels.add(
+      `${formatAlgorithmShortName(annotation.algorithm)}/${formatSourceShortName(annotation.source)}`,
+    );
+  }
+
+  return [...labels].join(", ");
+}
+
+function formatGroupTimes(group: TooltipGroup): string {
+  const timeByLabel = new Map<string, number>();
+
+  for (const annotation of group.annotations) {
+    const label = `${formatAlgorithmShortName(annotation.algorithm)}/${formatSourceShortName(annotation.source)}`;
+    timeByLabel.set(label, (timeByLabel.get(label) ?? 0) + annotation.executionTimeMs);
+  }
+
+  return [...timeByLabel.entries()]
+    .sort(([firstLabel], [secondLabel]) =>
+      getTimeLabelPriority(firstLabel) - getTimeLabelPriority(secondLabel) ||
+      firstLabel.localeCompare(secondLabel),
+    )
+    .map(([label, time]) => `${label} ${formatCompactMs(time)}`)
+    .join(" + ");
+}
+
+function formatGroupCount(group: TooltipGroup): number {
+  return Math.max(1, ...group.annotations.map((annotation) => annotation.count));
+}
+
+function sortTooltipAnnotations(
+  annotations: TextMatchAnnotation[],
+): TextMatchAnnotation[] {
+  return [...annotations].sort((first, second) => {
+    const priorityDifference =
+      getAlgorithmPriority(first.algorithm) - getAlgorithmPriority(second.algorithm);
+
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    return first.algorithm.localeCompare(second.algorithm);
+  });
+}
+
+function formatAlgorithmShortName(algorithm: MatchAlgorithm): string {
+  switch (algorithm) {
+    case "Boyer-Moore":
+      return "BM";
+    case "Weighted-Levenshtein":
+      return "Fuzzy";
+    case "Rabin-Karp":
+      return "RK";
+    case "Aho-Corasick":
+      return "AC";
+    default:
+      return algorithm;
+  }
+}
+
+function formatSourceShortName(source: MatchSource): string {
+  return source === "dom-text" ? "Text" : "OCR";
+}
+
+function getTimeLabelPriority(label: string): number {
+  const algorithmLabel = label.split("/")[0];
+
+  switch (algorithmLabel) {
+    case "KMP":
+    case "BM":
+      return 1;
+    case "Regex":
+      return 2;
+    case "RK":
+    case "AC":
+      return 3;
+    case "Fuzzy":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function formatCompactMs(value: number): string {
   if (!Number.isFinite(value)) {
     return "0 ms";
   }
 
-  return value < 10 ? `${value.toFixed(2)} ms` : `${Math.round(value)} ms`;
+  if (value < 10) {
+    return `${value.toFixed(1)} ms`;
+  }
+
+  return `${Math.round(value)} ms`;
 }
 
 function connectTooltip(mark: HTMLElement): void {
@@ -307,14 +474,14 @@ function injectTextMarkStyle(): void {
     .${TEXT_TOOLTIP_CLASS} {
       position: fixed !important;
       z-index: 2147483647 !important;
-      max-width: min(360px, 80vw) !important;
+      max-width: min(300px, 75vw) !important;
       padding: 6px 8px !important;
-      border: 1px solid rgba(57, 194, 239, 0.75) !important;
+      border: 1px solid rgba(255, 255, 255, 0.22) !important;
       border-radius: 4px !important;
       background: rgba(11, 11, 13, 0.94) !important;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28) !important;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24) !important;
       color: #ffffff !important;
-      font: 12px/1.35 Arial, sans-serif !important;
+      font: 12px/1.3 Arial, sans-serif !important;
       white-space: pre-line !important;
       pointer-events: none !important;
     }

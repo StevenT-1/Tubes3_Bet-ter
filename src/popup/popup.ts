@@ -83,14 +83,20 @@ type PopupState = {
 type SettingRow =
   | {
       label: string;
-      key: "highlight" | "blurText" | "ocr" | "runRabinKarp" | "sound";
+      key:
+        | "highlight"
+        | "blurText"
+        | "ocr"
+        | "runRabinKarp"
+        | "runAhoCorasick"
+        | "sound";
       kind: "toggle";
       checked: boolean;
     }
   | {
       label: string;
       kind: "threshold";
-      value: string;
+      value: number;
     };
 
 const BETTER_AUDIO_MUTED_KEY = "better.detector.audioMuted";
@@ -289,6 +295,7 @@ let activeStatisticBackdrop: HTMLElement | null = null;
 let activeStatisticPopup: HTMLElement | null = null;
 let activeStatisticDetailBackdrop: HTMLElement | null = null;
 let activeStatisticDetailPopup: HTMLElement | null = null;
+let scheduledScanTimer: number | null = null;
 
 class GlitchButtonController {
   private readonly button: HTMLButtonElement;
@@ -1204,9 +1211,15 @@ function getSettingsRows(): SettingRow[] {
       checked: appState.settings.runRabinKarp,
     },
     {
+      label: "Aho-Corasick",
+      kind: "toggle",
+      key: "runAhoCorasick",
+      checked: appState.settings.runAhoCorasick,
+    },
+    {
       label: "Fuzzy threshold",
       kind: "threshold",
-      value: appState.settings.fuzzyThreshold.toFixed(1),
+      value: appState.settings.fuzzyThreshold,
     },
     {
       label: "Sound",
@@ -1298,9 +1311,7 @@ function createToggle(
     emitParticles(particleField, CLICK_BURST_PARTICLES);
     playAudioElement(toggleSound);
     void saveSettings(appState.settings);
-    window.setTimeout(() => {
-      void scanActiveTab();
-    }, TOGGLE_RESCAN_DELAY_MS);
+    scheduleScan();
   });
 
   const track = document.createElement("span");
@@ -1310,12 +1321,34 @@ function createToggle(
   return wrapper;
 }
 
-function createThreshold(value: string): HTMLElement {
-  const threshold = document.createElement("span");
+function createThreshold(value: number): HTMLElement {
+  const threshold = document.createElement("input");
   threshold.className = "threshold-pill";
-  threshold.textContent = value;
-  threshold.title = "Reserved for weighted fuzzy matching";
+  threshold.type = "number";
+  threshold.min = "0.5";
+  threshold.max = "0.95";
+  threshold.step = "0.05";
+  threshold.value = value.toFixed(2);
+  threshold.setAttribute("aria-label", "Fuzzy threshold");
+  threshold.addEventListener("change", () => {
+    const nextThreshold = clampFuzzyThreshold(Number(threshold.value));
+    threshold.value = nextThreshold.toFixed(2);
+    appState.settings = {
+      ...appState.settings,
+      fuzzyThreshold: nextThreshold,
+    };
+    void saveSettings(appState.settings);
+    scheduleScan();
+  });
   return threshold;
+}
+
+function clampFuzzyThreshold(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_SCAN_SETTINGS.fuzzyThreshold;
+  }
+
+  return Math.min(0.95, Math.max(0.5, value));
 }
 
 function createTextSpan(text: string): HTMLSpanElement {
@@ -1323,6 +1356,23 @@ function createTextSpan(text: string): HTMLSpanElement {
   span.textContent = text;
   span.title = text;
   return span;
+}
+
+function scheduleScan(): void {
+  if (scheduledScanTimer !== null) {
+    window.clearTimeout(scheduledScanTimer);
+  }
+
+  scheduledScanTimer = window.setTimeout(() => {
+    scheduledScanTimer = null;
+
+    if (appState.isScanning) {
+      scheduleScan();
+      return;
+    }
+
+    void scanActiveTab();
+  }, TOGGLE_RESCAN_DELAY_MS);
 }
 
 async function scanActiveTab(): Promise<void> {
@@ -1587,9 +1637,13 @@ function normalizeSettings(
       typeof settings?.runRabinKarp === "boolean"
         ? settings.runRabinKarp
         : DEFAULT_SCAN_SETTINGS.runRabinKarp,
+    runAhoCorasick:
+      typeof settings?.runAhoCorasick === "boolean"
+        ? settings.runAhoCorasick
+        : DEFAULT_SCAN_SETTINGS.runAhoCorasick,
     fuzzyThreshold:
       typeof settings?.fuzzyThreshold === "number"
-        ? Math.min(1, Math.max(0, settings.fuzzyThreshold))
+        ? clampFuzzyThreshold(settings.fuzzyThreshold)
         : DEFAULT_SCAN_SETTINGS.fuzzyThreshold,
   };
 }

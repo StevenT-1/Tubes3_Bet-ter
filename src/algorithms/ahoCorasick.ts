@@ -24,7 +24,7 @@ function buildAutomaton(keywords: string[]): AhoCorasickNode[]
     {
         let keyword = keywords[keywordIdx];
 
-        if (keyword.length == 0)
+        if (keyword.length === 0)
         {
             continue;
         }
@@ -64,13 +64,13 @@ function buildAutomaton(keywords: string[]): AhoCorasickNode[]
         trie[currentNode].children.forEach((nextNode: number, currentChar: string) => {
             let failNode = trie[currentNode].fail;
 
-            while (failNode != 0 && trie[failNode].children.get(currentChar) === undefined)
+            while (failNode !== 0 && trie[failNode].children.get(currentChar) === undefined)
             {
                 failNode = trie[failNode].fail;
             }
 
             let failNextNode = trie[failNode].children.get(currentChar);
-            if (failNextNode !== undefined && failNextNode != nextNode)
+            if (failNextNode !== undefined && failNextNode !== nextNode)
             {
                 trie[nextNode].fail = failNextNode;
             }
@@ -122,7 +122,7 @@ export function searchAhoCorasick (
     {
         let currentChar = sText[tIdx];
 
-        while (currentNode != 0 && trie[currentNode].children.get(currentChar) === undefined)
+        while (currentNode !== 0 && trie[currentNode].children.get(currentChar) === undefined)
         {
             currentNode = trie[currentNode].fail;
             ++comparisonCount;
@@ -157,7 +157,7 @@ export function searchAhoCorasick (
             (
                 matchResultGenerator
                 (
-                    cKeywords[keyIdx],
+                    keywords[keyIdx],
                     text.slice(r, r + keyl),
                     r,
                     r + keyl - 1

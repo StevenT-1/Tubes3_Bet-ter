@@ -1,3 +1,4 @@
+import { searchAhoCorasick } from "../algorithms/ahoCorasick";
 import { searchBoyerMoore } from "../algorithms/boyerMoore";
 import { searchKMP } from "../algorithms/kmp";
 import { searchRabinKarp } from "../algorithms/rabinKarp";
@@ -7,6 +8,8 @@ import type { AlgorithmResult, MatchSource } from "../algorithms/types";
 
 export type TextAlgorithmOptions = {
   runRabinKarp: boolean;
+  runAhoCorasick: boolean;
+  fuzzyThreshold: number;
 };
 
 export function runTextAlgorithms(
@@ -20,11 +23,21 @@ export function runTextAlgorithms(
     searchKMP(keywords, text, sourceType, caseInsensitive),
     searchBoyerMoore(keywords, text, sourceType, caseInsensitive),
     searchRegex(keywords, text, sourceType, caseInsensitive),
-    searchWeightedLevenshtein(keywords, text, sourceType, caseInsensitive),
+    searchWeightedLevenshtein(
+      keywords,
+      text,
+      sourceType,
+      caseInsensitive,
+      options.fuzzyThreshold,
+    ),
   ];
 
   if (options.runRabinKarp) {
     results.push(searchRabinKarp(keywords, text, sourceType, caseInsensitive));
+  }
+
+  if (options.runAhoCorasick) {
+    results.push(searchAhoCorasick(keywords, text, sourceType, caseInsensitive));
   }
 
   return results;

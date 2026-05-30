@@ -13,7 +13,6 @@ import {
   collectImageCandidates,
   type ImageCandidate,
 } from "./imageScanner";
-import { addUniqueWarning } from "./warnings";
 
 const OCR_TIMEOUT_MS = 20_000;
 const OCR_TIMEOUT_WARNING = "OCR timed out after 20 seconds.";
@@ -29,9 +28,9 @@ export async function scanImagesWithOcr(
   algorithmOptions: TextAlgorithmOptions,
 ): Promise<OcrScanResult> {
   const warnings: string[] = [];
-  const warningSet = new Set<string>();
   const detectedImages: HTMLImageElement[] = [];
   const imageResults: AlgorithmResult[] = [];
+  let failedImageCount = 0;
   const candidates = collectImageCandidates(document.body);
 
   if (candidates.length === 0) {
@@ -61,13 +60,11 @@ export async function scanImagesWithOcr(
       };
     }
 
-    for (const warning of response.warnings) {
-      addUniqueWarning(warningSet, warnings, warning);
-    }
+    warnings.push(...uniqueWarnings(response.warnings));
 
     for (const result of response.results) {
       if (result.warning) {
-        addUniqueWarning(warningSet, warnings, result.warning);
+        failedImageCount += 1;
       }
 
       if (!result.text.trim()) {
@@ -87,6 +84,10 @@ export async function scanImagesWithOcr(
       if (candidate && algorithmResults.some((entry) => entry.matches.length > 0)) {
         detectedImages.push(candidate.element);
       }
+    }
+
+    if (failedImageCount > 0) {
+      warnings.push(`OCR failed for ${failedImageCount} image(s).`);
     }
   } catch (error) {
     if (isOcrTimeoutError(error)) {

@@ -1,119 +1,94 @@
-import { MatchResult, MatchSource, matchResultGenerator, AlgorithmResult, algorithmResultGenerator } from './types';
+import {
+    AlgorithmResult,
+    MatchResult,
+    MatchSource,
+    algorithmResultGenerator,
+    matchResultGenerator,
+} from "./types";
 
-function borderFunction (keyword: string): number[]
-{
-    let length = keyword.length;
-    let res: number[] = new Array();
-    let k = 0;
+function buildLongestPrefixSuffix(keyword: string): number[] {
+    const table = new Array<number>(keyword.length).fill(0);
+    let prefixLength = 0;
+    let index = 1;
 
-    for(k = 0; k < length; k++)
-    {
-        let longestMatch = 0;
-        let wlth = 0;
-        for (wlth = 0; wlth <= k; wlth++)
-        {
-            let prefId = 0;
-            let suffId = k - wlth;
-            let match = true;
-            for (prefId = 0, suffId = k - wlth; prefId < wlth; prefId++, suffId++)
-            {
-                if(keyword[prefId] !== keyword[suffId])
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) longestMatch = wlth;
-        }
-
-        res[k] = longestMatch;
-    }
-    return res;
-}
-
-export function searchKMP (
-    keywords: string[],
-    text: string,
-    sourceType: MatchSource,
-    caseInsensitive: boolean
-): AlgorithmResult
-{
-    let start = performance.now();
-    let finRes: MatchResult[] = [];
-    let keyword:string;
-    let comparisonCount = 0;
-    for (keyword of keywords)
-    {
-        if (keyword.length === 0)
-        {
+    while (index < keyword.length) {
+        if (keyword[index] === keyword[prefixLength]) {
+            prefixLength += 1;
+            table[index] = prefixLength;
+            index += 1;
             continue;
         }
 
-        let sText: string = text;
-        let cKeyword: string = keyword;
-        let resIdx: number[] = [];
-        if (caseInsensitive)
-        {
-            cKeyword = keyword.toLowerCase();
-            sText = sText.toLowerCase();
+        if (prefixLength > 0) {
+            prefixLength = table[prefixLength - 1];
+            continue;
         }
 
-        let b: number[] = borderFunction(cKeyword);
-        let tIdx = 0;
-        let keyIdx = 0;
-        let keyl = cKeyword.length;
-        let tl = sText.length;
+        table[index] = 0;
+        index += 1;
+    }
 
-        while (tIdx < tl)
-        {
-            ++comparisonCount;
-            if (cKeyword[keyIdx] === sText[tIdx])
-            {
-                if (keyIdx >= keyl - 1)
-                {
-                    resIdx.push(tIdx - keyl + 1);
-                    keyIdx = -1;
-                }
-                ++keyIdx;
-                ++tIdx;
-            }
-            else
-            {
-                if (keyIdx > 0)
-                {
-                    keyIdx = b[keyIdx - 1];
-                }
-                else
-                {
-                    ++tIdx;
-                }
-            }
+    return table;
+}
+
+export function searchKMP(
+    keywords: string[],
+    text: string,
+    sourceType: MatchSource,
+    caseInsensitive: boolean,
+): AlgorithmResult {
+    const start = performance.now();
+    const matches: MatchResult[] = [];
+    let comparisonCount = 0;
+    const searchableText = caseInsensitive ? text.toLowerCase() : text;
+
+    for (const keyword of keywords) {
+        if (keyword.length === 0) {
+            continue;
         }
 
-        for (let r of resIdx)
-        {
-            finRes.push
-            (
-                matchResultGenerator
-                (
-                    keyword,
-                    text.slice(r, r + keyl),
-                    r,
-                    r + keyl - 1
-                )
-            )
+        const searchableKeyword = caseInsensitive ? keyword.toLowerCase() : keyword;
+        const keywordLength = searchableKeyword.length;
+        const longestPrefixSuffix = buildLongestPrefixSuffix(searchableKeyword);
+        let textIndex = 0;
+        let keywordIndex = 0;
+
+        while (textIndex < searchableText.length) {
+            comparisonCount += 1;
+
+            if (searchableKeyword[keywordIndex] === searchableText[textIndex]) {
+                textIndex += 1;
+                keywordIndex += 1;
+
+                if (keywordIndex === keywordLength) {
+                    const matchStart = textIndex - keywordLength;
+                    matches.push(
+                        matchResultGenerator(
+                            keyword,
+                            text.slice(matchStart, textIndex),
+                            matchStart,
+                            textIndex - 1,
+                        ),
+                    );
+                    keywordIndex = longestPrefixSuffix[keywordIndex - 1];
+                }
+
+                continue;
+            }
+
+            if (keywordIndex > 0) {
+                keywordIndex = longestPrefixSuffix[keywordIndex - 1];
+            } else {
+                textIndex += 1;
+            }
         }
     }
-    let end = performance.now();
-    let algoRes: AlgorithmResult = (
-        algorithmResultGenerator
-        (
-            finRes,
-            end - start,
-            comparisonCount,
-            "KMP",
-            sourceType
-        )
-    )
-    return algoRes;
+
+    return algorithmResultGenerator(
+        matches,
+        performance.now() - start,
+        comparisonCount,
+        "KMP",
+        sourceType,
+    );
 }

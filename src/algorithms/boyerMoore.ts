@@ -13,7 +13,7 @@ export function searchBoyerMoore(
 
   for (const keyword of keywords) {
     const searchableKeyword = caseInsensitive ? keyword.toLowerCase() : keyword;
-    const result = searchKeyword(text, searchableText, searchableKeyword);
+    const result = searchKeyword(text, searchableText, keyword, searchableKeyword);
 
     matches.push(...result.matches);
     comparisonCount += result.comparisonCount;
@@ -31,6 +31,7 @@ export function searchBoyerMoore(
 function searchKeyword(
   originalText: string,
   searchableText: string,
+  originalKeyword: string,
   searchableKeyword: string,
 ): { matches: MatchResult[]; comparisonCount: number } {
   const matches: MatchResult[] = [];
@@ -62,7 +63,7 @@ function searchKeyword(
 
     if (keywordIndex < 0) {
       matches.push({
-        keyword: searchableKeyword,
+        keyword: originalKeyword,
         matchedText: originalText.slice(shift, shift + keywordLength),
         startIndex: shift,
         endIndex: shift + keywordLength - 1,
