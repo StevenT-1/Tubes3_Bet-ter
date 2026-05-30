@@ -1,14 +1,4 @@
-import { searchBoyerMoore } from "../algorithms/boyerMoore";
-import { searchKMP } from "../algorithms/kmp";
-import { searchRegex } from "../algorithms/regex";
-import type { AlgorithmResult } from "../algorithms/types";
-import {
-  buildDetectionsForTextNode,
-  buildHighlightRanges,
-  formatTooltipDetections,
-  type Detection,
-  type HighlightRange,
-} from "../matching/detectionModel";
+import type { MatchAlgorithm, MatchSource } from "../algorithms/types";
 import type { ScanSettings } from "../shared/messages";
 import type { TextNodeScan } from "./domScanner";
 
@@ -23,31 +13,48 @@ const MAX_MARKED_NODES = 350;
 const TOOLTIP_MARGIN_PX = 10;
 const TOOLTIP_OFFSET_PX = 14;
 
+type MatchRange = {
+  start: number;
+  end: number;
+  annotations: TextMatchAnnotation[];
+};
+
+export type TextMatchAnnotation = {
+  start: number;
+  end: number;
+  keyword: string;
+  matchedText: string;
+  algorithm: MatchAlgorithm;
+  source: MatchSource;
+  count: number;
+  executionTimeMs: number;
+};
+
 let activeTooltip: HTMLElement | null = null;
 
 export function markTextMatches(
   textNodes: TextNodeScan[],
-  keywords: string[],
+  annotations: TextMatchAnnotation[],
   settings: ScanSettings,
 ): void {
   injectTextMarkStyle();
 
   let markedNodeCount = 0;
-  let textNodeIndex = 0;
+  let textOffset = 0;
 
   for (const entry of textNodes) {
     if (markedNodeCount >= MAX_MARKED_NODES) {
       break;
     }
 
+    const nodeStart = textOffset;
+    textOffset += entry.text.length + 1;
+
     if (!entry.node.isConnected) {
       continue;
     }
 
-    const textNodeId = String(textNodeIndex);
-    const detections = findDetectionsInText(textNodeId, entry.text, keywords);
-    const ranges = buildHighlightRanges(detections);
-    textNodeIndex += 1;
+    const ranges = findRangesForNode(annotations, nodeStart, entry.text.length);
 
     if (ranges.length === 0) {
       continue;
@@ -77,29 +84,57 @@ export function clearTextMarks(): void {
   }
 }
 
-function findDetectionsInText(
-  textNodeId: string,
-  text: string,
-  keywords: string[],
-): Detection[] {
-  return buildDetectionsForTextNode(
-    textNodeId,
-    runMarkerAlgorithms(text, keywords),
-  );
+function findRangesForNode(
+  annotations: TextMatchAnnotation[],
+  nodeStart: number,
+  nodeLength: number,
+): MatchRange[] {
+  const nodeEnd = nodeStart + nodeLength;
+  const ranges = annotations
+    .map((annotation) => annotationToRange(annotation, nodeStart, nodeEnd))
+    .filter((range): range is MatchRange => Boolean(range))
+    .sort((first, second) => first.start - second.start || second.end - first.end);
+
+  const mergedRanges: MatchRange[] = [];
+
+  for (const range of ranges) {
+    const lastRange = mergedRanges[mergedRanges.length - 1];
+
+    if (!lastRange || range.start >= lastRange.end) {
+      mergedRanges.push(range);
+      continue;
+    }
+
+    if (range.end > lastRange.end) {
+      lastRange.end = range.end;
+    }
+
+    lastRange.annotations.push(...range.annotations);
+  }
+
+  return mergedRanges;
 }
 
-function runMarkerAlgorithms(text: string, keywords: string[]): AlgorithmResult[] {
-  return [
-    searchKMP(keywords, text, "dom-text", true),
-    searchBoyerMoore(keywords, text, "dom-text", true),
-    searchRegex(keywords, text, "dom-text", true),
-  ];
+function annotationToRange(
+  annotation: TextMatchAnnotation,
+  nodeStart: number,
+  nodeEnd: number,
+): MatchRange | null {
+  if (annotation.end <= nodeStart || annotation.start >= nodeEnd) {
+    return null;
+  }
+
+  return {
+    start: Math.max(annotation.start, nodeStart) - nodeStart,
+    end: Math.min(annotation.end, nodeEnd) - nodeStart,
+    annotations: [annotation],
+  };
 }
 
 function replaceTextNodeWithMarks(
   node: Text,
   text: string,
-  ranges: HighlightRange[],
+  ranges: MatchRange[],
   settings: ScanSettings,
 ): void {
   const parent = node.parentNode;
@@ -127,9 +162,10 @@ function replaceTextNodeWithMarks(
       .join(" ");
     mark.dataset.originalText = matchedText;
     mark.dataset.judolHighlight = "true";
-    mark.dataset.judolTooltip = formatTooltipDetections(range.detections);
+    mark.dataset.judolTooltip = formatTooltipAnnotations(range.annotations);
     mark.append(createMarkedText(matchedText));
     connectTooltip(mark);
+
     fragment.append(mark);
     cursor = range.end;
   }
@@ -146,6 +182,34 @@ function createMarkedText(text: string): HTMLElement {
   textElement.className = TEXT_VALUE_CLASS;
   textElement.textContent = text;
   return textElement;
+}
+
+function formatTooltipAnnotations(annotations: TextMatchAnnotation[]): string {
+  const lines = ["Detected:"];
+
+  for (const annotation of annotations) {
+    lines.push(
+      `- Keyword: ${annotation.keyword}`,
+      `  Matched text: ${annotation.matchedText}`,
+      `  Algorithm/source: ${annotation.algorithm} / ${formatSource(annotation.source)}`,
+      `  Occurrences: ${annotation.count}`,
+      `  Execution time: ${formatMs(annotation.executionTimeMs)}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function formatSource(source: MatchSource): string {
+  return source === "dom-text" ? "DOM Text" : "Image OCR";
+}
+
+function formatMs(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0 ms";
+  }
+
+  return value < 10 ? `${value.toFixed(2)} ms` : `${Math.round(value)} ms`;
 }
 
 function connectTooltip(mark: HTMLElement): void {

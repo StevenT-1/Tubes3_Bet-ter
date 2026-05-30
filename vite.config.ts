@@ -2,6 +2,10 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "",
+  define: {
+    global: "globalThis",
+    Buffer: "globalThis.Buffer",
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

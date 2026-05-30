@@ -48,7 +48,6 @@ function searchKeyword(
   let windowHash = computeHash(searchableText, 0, keywordLength);
   const highestPower = computePower(BASE, keywordLength - 1);
   let comparisonCount = 0;
-  let nextAllowedMatchStart = 0;
 
   for (let index = 0; index <= searchableText.length - keywordLength; index += 1) {
     if (index > 0) {
@@ -67,14 +66,13 @@ function searchKeyword(
     const verification = verifyMatch(searchableText, searchableKeyword, index);
     comparisonCount += verification.comparisonCount;
 
-    if (verification.isMatch && index >= nextAllowedMatchStart) {
+    if (verification.isMatch) {
       matches.push({
         keyword: originalKeyword,
         matchedText: originalText.slice(index, index + keywordLength),
         startIndex: index,
         endIndex: index + keywordLength - 1,
       });
-      nextAllowedMatchStart = index + keywordLength;
     }
   }
 

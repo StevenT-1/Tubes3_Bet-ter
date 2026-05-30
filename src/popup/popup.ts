@@ -1,9 +1,13 @@
-import type {
-  AlgorithmResultSummary,
-  ClearResponse,
-  ScanResponse,
-  ScanSettings,
-  StatisticChartRow,
+import {
+  BETTER_CLEAR_MESSAGE,
+  BETTER_SCAN_MESSAGE,
+  BETTER_SETTINGS_KEY,
+  DEFAULT_SCAN_SETTINGS,
+  type AlgorithmResultSummary,
+  type ClearResponse,
+  type ScanResponse,
+  type ScanSettings,
+  type StatisticChartRow,
 } from "../shared/messages";
 
 type Palette = {
@@ -79,7 +83,7 @@ type PopupState = {
 type SettingRow =
   | {
       label: string;
-      key: "highlight" | "blurText" | "ocr" | "sound";
+      key: "highlight" | "blurText" | "ocr" | "runRabinKarp" | "sound";
       kind: "toggle";
       checked: boolean;
     }
@@ -89,24 +93,14 @@ type SettingRow =
       value: string;
     };
 
-const BETTER_SCAN_MESSAGE = "BETTER_SCAN";
-const BETTER_CLEAR_MESSAGE = "BETTER_CLEAR";
-const BETTER_SETTINGS_KEY = "better.detector.settings";
 const BETTER_AUDIO_MUTED_KEY = "better.detector.audioMuted";
 const POPUP_HEIGHT_RATIO = 0.75;
 const POPUP_BACKGROUND_WIDTH = 734;
 const POPUP_BACKGROUND_HEIGHT = 1194;
 const POPUP_MAX_HEIGHT = 600;
 const POPUP_FALLBACK_VIEWPORT_HEIGHT = 800;
-const DEFAULT_SCAN_SETTINGS: ScanSettings = {
-  highlight: true,
-  blurText: false,
-  ocr: true,
-  fuzzyThreshold: 0.7,
-};
 const DEFAULT_AUDIO_MUTED = true;
 const TOGGLE_RESCAN_DELAY_MS = 700;
-
 const PALETTE_CYAN = "#39c2ef";
 const PALETTE_PINK = "#f9169c";
 const PALETTE_WHITE = "#ffffff";
@@ -945,7 +939,7 @@ function createMatchesSection(): HTMLElement {
 
   for (const row of appState.matchRows) {
     grid.append(
-      createTextSpan(row.algorithm),
+      createTextSpan(`${row.algorithm} / ${formatMatchSource(row.source)}`),
       createTextSpan(`${row.matches} matches`),
       createTextSpan(formatMs(row.executionTimeMs)),
     );
@@ -1204,6 +1198,12 @@ function getSettingsRows(): SettingRow[] {
       checked: appState.settings.ocr,
     },
     {
+      label: "Rabin-Karp comparison",
+      kind: "toggle",
+      key: "runRabinKarp",
+      checked: appState.settings.runRabinKarp,
+    },
+    {
       label: "Fuzzy threshold",
       kind: "threshold",
       value: appState.settings.fuzzyThreshold.toFixed(1),
@@ -1314,7 +1314,7 @@ function createThreshold(value: string): HTMLElement {
   const threshold = document.createElement("span");
   threshold.className = "threshold-pill";
   threshold.textContent = value;
-  threshold.title = "Current fuzzy threshold";
+  threshold.title = "Reserved for weighted fuzzy matching";
   return threshold;
 }
 
@@ -1364,9 +1364,14 @@ async function clearActiveTab(): Promise<void> {
     const tab = await getActiveTab();
 
     if (tab?.id) {
-      await sendTabMessage<ClearResponse>(tab.id, {
+      const response = await sendTabMessage<ClearResponse>(tab.id, {
         type: BETTER_CLEAR_MESSAGE,
       });
+
+      if (!response.ok) {
+        throw new Error(response.error ?? "Unable to clear scan results.");
+      }
+
       appState.currentPage = formatTabLabel(tab);
     }
 
@@ -1386,7 +1391,8 @@ async function clearActiveTab(): Promise<void> {
 }
 
 function applyScanResponse(response: ScanResponse & { ok: true }): void {
-  appState.status = response.totalMatches > 0 ? "Detected" : "Clear";
+  appState.status =
+    response.warnings.length > 0 ? "Scan complete with warnings" : "Scan complete";
   appState.currentPage = response.title || formatUrl(response.url);
   appState.loadedKeywordCount = response.loadedKeywordCount;
   appState.matchedKeywordCount = response.matchedKeywordCount;
@@ -1410,7 +1416,12 @@ function applyScanError(error: unknown): void {
 
 function friendlyErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message || "Scan failed";
+
+  if (/No active tab/.test(message)) {
+    return "No active page";
+  }
+
+  return "Cannot scan this page";
 }
 
 function getActiveTab(): Promise<chrome.tabs.Tab | null> {
@@ -1473,6 +1484,12 @@ function hasChromeTabs(): boolean {
 
 function formatTabLabel(tab: chrome.tabs.Tab): string {
   return tab.title?.trim() || formatUrl(tab.url ?? "");
+}
+
+function formatMatchSource(source: string): string {
+  if (source === "dom-text") return "DOM Text";
+  if (source === "image-ocr") return "Image OCR";
+  return source;
 }
 
 function formatUrl(url: string): string {
@@ -1566,6 +1583,10 @@ function normalizeSettings(
       typeof settings?.ocr === "boolean"
         ? settings.ocr
         : DEFAULT_SCAN_SETTINGS.ocr,
+    runRabinKarp:
+      typeof settings?.runRabinKarp === "boolean"
+        ? settings.runRabinKarp
+        : DEFAULT_SCAN_SETTINGS.runRabinKarp,
     fuzzyThreshold:
       typeof settings?.fuzzyThreshold === "number"
         ? Math.min(1, Math.max(0, settings.fuzzyThreshold))

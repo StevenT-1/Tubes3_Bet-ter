@@ -4,7 +4,8 @@
   "description": "Detect online gambling site",
   "type": "module",
   "scripts": {
-    "build": "tsc && vite build && vite build --config vite.content.config.ts"
+    "build": "tsc && vite build && vite build --config vite.ocr-worker.config.ts && vite build --config vite.content.config.ts",
+    "test": "node --import tsx --test test/**/*.test.ts"
   },
   "repository": {
     "type": "git",
@@ -21,5 +22,10 @@
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "buffer": "^6.0.3",
+    "tesseract.js": "^7.0.0"
   }
 }
