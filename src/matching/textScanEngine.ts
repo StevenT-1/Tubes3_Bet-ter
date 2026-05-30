@@ -9,7 +9,6 @@ import type { AlgorithmResult, MatchSource } from "../algorithms/types";
 export type TextAlgorithmOptions = {
   runRabinKarp: boolean;
   runAhoCorasick: boolean;
-  fuzzyThreshold: number;
 };
 
 export function runTextAlgorithms(
@@ -23,13 +22,7 @@ export function runTextAlgorithms(
     searchKMP(keywords, text, sourceType, caseInsensitive),
     searchBoyerMoore(keywords, text, sourceType, caseInsensitive),
     searchRegex(keywords, text, sourceType, caseInsensitive),
-    searchWeightedLevenshtein(
-      keywords,
-      text,
-      sourceType,
-      caseInsensitive,
-      options.fuzzyThreshold,
-    ),
+    searchWeightedLevenshtein(keywords, text, sourceType, caseInsensitive),
   ];
 
   if (options.runRabinKarp) {

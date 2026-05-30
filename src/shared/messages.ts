@@ -11,7 +11,6 @@ export type ScanSettings = {
   ocr: boolean;
   runRabinKarp: boolean;
   runAhoCorasick: boolean;
-  fuzzyThreshold: number;
 };
 
 export type StatisticDetailRow = {
@@ -117,5 +116,4 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   ocr: false,
   runRabinKarp: false,
   runAhoCorasick: false,
-  fuzzyThreshold: 0.7,
 };

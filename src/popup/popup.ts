@@ -16,7 +16,6 @@ type Palette = {
   toggleOn: string;
   toggleOff: string;
   toggleThumb: string;
-  thresholdBackground: string;
   glitchRed: string;
   glitchCyan: string;
   glitchWhite: string;
@@ -92,11 +91,6 @@ type SettingRow =
         | "sound";
       kind: "toggle";
       checked: boolean;
-    }
-  | {
-      label: string;
-      kind: "threshold";
-      value: number;
     };
 
 const BETTER_AUDIO_MUTED_KEY = "better.detector.audioMuted";
@@ -117,7 +111,6 @@ const COLOR_PALETTE: Palette = {
   toggleOn: "#16aee5",
   toggleOff: "#cfcfd2",
   toggleThumb: PALETTE_WHITE,
-  thresholdBackground: "#dedfe1",
   glitchRed: PALETTE_PINK,
   glitchCyan: PALETTE_CYAN,
   glitchWhite: PALETTE_WHITE,
@@ -265,7 +258,6 @@ const PALETTE_VARIABLES: Array<
   ["toggleOn", "--color-toggle-on"],
   ["toggleOff", "--color-toggle-off"],
   ["toggleThumb", "--color-toggle-thumb"],
-  ["thresholdBackground", "--color-threshold-bg"],
   ["glitchRed", "--color-glitch-red"],
   ["glitchCyan", "--color-glitch-cyan"],
   ["glitchWhite", "--color-glitch-white"],
@@ -1172,11 +1164,7 @@ function createSettingsSection(): HTMLElement {
     label.textContent = setting.label;
     row.append(label);
 
-    if (setting.kind === "toggle") {
-      row.append(createToggle(setting));
-    } else {
-      row.append(createThreshold(setting.value));
-    }
+    row.append(createToggle(setting));
 
     list.append(row);
   }
@@ -1205,7 +1193,7 @@ function getSettingsRows(): SettingRow[] {
       checked: appState.settings.ocr,
     },
     {
-      label: "Rabin-Karp comparison",
+      label: "Rabin-Karp",
       kind: "toggle",
       key: "runRabinKarp",
       checked: appState.settings.runRabinKarp,
@@ -1215,11 +1203,6 @@ function getSettingsRows(): SettingRow[] {
       kind: "toggle",
       key: "runAhoCorasick",
       checked: appState.settings.runAhoCorasick,
-    },
-    {
-      label: "Fuzzy threshold",
-      kind: "threshold",
-      value: appState.settings.fuzzyThreshold,
     },
     {
       label: "Sound",
@@ -1319,36 +1302,6 @@ function createToggle(
 
   wrapper.append(input, track, particleField);
   return wrapper;
-}
-
-function createThreshold(value: number): HTMLElement {
-  const threshold = document.createElement("input");
-  threshold.className = "threshold-pill";
-  threshold.type = "number";
-  threshold.min = "0.5";
-  threshold.max = "0.95";
-  threshold.step = "0.05";
-  threshold.value = value.toFixed(2);
-  threshold.setAttribute("aria-label", "Fuzzy threshold");
-  threshold.addEventListener("change", () => {
-    const nextThreshold = clampFuzzyThreshold(Number(threshold.value));
-    threshold.value = nextThreshold.toFixed(2);
-    appState.settings = {
-      ...appState.settings,
-      fuzzyThreshold: nextThreshold,
-    };
-    void saveSettings(appState.settings);
-    scheduleScan();
-  });
-  return threshold;
-}
-
-function clampFuzzyThreshold(value: number): number {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_SCAN_SETTINGS.fuzzyThreshold;
-  }
-
-  return Math.min(0.95, Math.max(0.5, value));
 }
 
 function createTextSpan(text: string): HTMLSpanElement {
@@ -1537,8 +1490,8 @@ function formatTabLabel(tab: chrome.tabs.Tab): string {
 }
 
 function formatMatchSource(source: string): string {
-  if (source === "dom-text") return "DOM Text";
-  if (source === "image-ocr") return "Image OCR";
+  if (source === "dom-text") return "Text";
+  if (source === "image-ocr") return "OCR";
   return source;
 }
 
@@ -1641,10 +1594,6 @@ function normalizeSettings(
       typeof settings?.runAhoCorasick === "boolean"
         ? settings.runAhoCorasick
         : DEFAULT_SCAN_SETTINGS.runAhoCorasick,
-    fuzzyThreshold:
-      typeof settings?.fuzzyThreshold === "number"
-        ? clampFuzzyThreshold(settings.fuzzyThreshold)
-        : DEFAULT_SCAN_SETTINGS.fuzzyThreshold,
   };
 }
 

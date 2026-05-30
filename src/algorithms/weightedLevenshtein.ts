@@ -1,6 +1,8 @@
 import * as Model from "./levenshteinModel";
 import { AlgorithmResult, MatchResult, MatchSource, matchResultGenerator, algorithmResultGenerator } from "./types";
 
+const FUZZY_DISTANCE_DIVISOR = 4;
+
 function containsChar(group: string[], target: string): boolean {
     for (let i = 0; i < group.length; i++) {
         if (group[i] === target) {
@@ -251,30 +253,50 @@ type TextToken = {
     length: number;
 };
 
-const TOKEN_PATTERN = /[\p{L}\p{N}@$+_.-]+/gu;
-const SUSPICIOUS_TOKEN_PATTERN = /[0-9@$+_.-]|(.)\1/u;
+const TOKEN_CHARACTER_PATTERN = /[\p{L}\p{N}]/u;
+const DIGIT_PATTERN = /\d/u;
+const NON_ASCII_PATTERN = /[^\x00-\x7F]/u;
+const REPEATED_CHARACTER_PATTERN = /(.)\1/u;
 
-function tokenizeWords(text: string, caseInsensitive: boolean): TextToken[] {
+function isTokenCharacter(char: string): boolean {
+    return TOKEN_CHARACTER_PATTERN.test(char);
+}
+
+function collectCandidateTokens(text: string, caseInsensitive: boolean): TextToken[] {
     const tokens: TextToken[] = [];
-    TOKEN_PATTERN.lastIndex = 0;
+    let token = "";
+    let tokenStartIndex = 0;
 
-    for (const match of text.matchAll(TOKEN_PATTERN)) {
-        const tokenText = match[0];
-        const startIndex = match.index ?? 0;
+    for (let index = 0; index <= text.length; index += 1) {
+        const char = text[index] ?? "";
+
+        if (char && isTokenCharacter(char)) {
+            if (token.length === 0) {
+                tokenStartIndex = index;
+            }
+
+            token += char;
+            continue;
+        }
+
+        if (token.length === 0) {
+            continue;
+        }
 
         tokens.push({
-            text: tokenText,
-            normalizedText: caseInsensitive ? tokenText.toLowerCase() : tokenText,
-            startIndex,
-            endIndex: startIndex + tokenText.length - 1,
-            length: tokenizeGraphemes(tokenText).length,
+            text: token,
+            normalizedText: caseInsensitive ? token.toLowerCase() : token,
+            startIndex: tokenStartIndex,
+            endIndex: tokenStartIndex + token.length - 1,
+            length: tokenizeGraphemes(token).length,
         });
+        token = "";
     }
 
     return tokens;
 }
 
-function shouldCompareToken(keyword: string, token: TextToken): boolean {
+function isCandidateWorthChecking(keyword: string, token: TextToken): boolean {
     if (token.length < 3 || token.normalizedText === keyword) {
         return false;
     }
@@ -287,10 +309,19 @@ function shouldCompareToken(keyword: string, token: TextToken): boolean {
         return false;
     }
 
+    return hasSuspiciousCharacters(token.normalizedText);
+}
+
+function hasSuspiciousCharacters(token: string): boolean {
     return (
-        lengthDifference <= 2 ||
-        SUSPICIOUS_TOKEN_PATTERN.test(token.normalizedText)
+        DIGIT_PATTERN.test(token) ||
+        NON_ASCII_PATTERN.test(token) ||
+        REPEATED_CHARACTER_PATTERN.test(token)
     );
+}
+
+function isFuzzyMatch(distance: number, token: TextToken): boolean {
+    return distance < token.length / FUZZY_DISTANCE_DIVISOR;
 }
 
 function getCachedDistance(
@@ -315,12 +346,11 @@ export function searchWeightedLevenshtein (
     text: string,
     sourceType: MatchSource,
     caseInsensitive: boolean,
-    fuzzyThreshold = 0.7,
 ) : AlgorithmResult
 {
     const start = performance.now();
     const finRes: MatchResult[] = [];
-    const tokens = tokenizeWords(text, caseInsensitive);
+    const tokens = collectCandidateTokens(text, caseInsensitive);
     const distanceCache = new Map<string, number>();
     const seenMatches = new Set<string>();
     let comparisonCount = 0;
@@ -337,7 +367,7 @@ export function searchWeightedLevenshtein (
         }
 
         for (const token of tokens) {
-            if (!shouldCompareToken(cKeyword, token)) {
+            if (!isCandidateWorthChecking(cKeyword, token)) {
                 continue;
             }
 
@@ -347,12 +377,12 @@ export function searchWeightedLevenshtein (
                 cKeyword,
                 token.normalizedText,
             );
-            const similarity =
-                1 - distance / Math.max(cKeyword.length, token.normalizedText.length);
-
-            if (similarity < fuzzyThreshold) {
+            if (!isFuzzyMatch(distance, token)) {
                 continue;
             }
+
+            const similarity =
+                1 - distance / Math.max(cKeyword.length, token.normalizedText.length);
 
             const matchKey = `${keyword}\n${token.startIndex}\n${token.endIndex}`;
             if (seenMatches.has(matchKey)) {

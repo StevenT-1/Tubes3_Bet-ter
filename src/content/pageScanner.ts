@@ -29,7 +29,6 @@ export async function scanPage(settings: ScanSettings): Promise<ScanResponse> {
   const algorithmOptions = {
     runRabinKarp: normalizedSettings.runRabinKarp,
     runAhoCorasick: normalizedSettings.runAhoCorasick,
-    fuzzyThreshold: normalizedSettings.fuzzyThreshold,
   };
 
   clearTextMarks();
@@ -211,9 +210,5 @@ function normalizeSettings(
       typeof settings?.runAhoCorasick === "boolean"
         ? settings.runAhoCorasick
         : DEFAULT_SCAN_SETTINGS.runAhoCorasick,
-    fuzzyThreshold:
-      typeof settings?.fuzzyThreshold === "number"
-        ? Math.min(0.95, Math.max(0.5, settings.fuzzyThreshold))
-        : DEFAULT_SCAN_SETTINGS.fuzzyThreshold,
   };
 }

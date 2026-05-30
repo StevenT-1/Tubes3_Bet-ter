@@ -8,7 +8,6 @@
   --color-toggle-on: #16aee5;
   --color-toggle-off: #cfcfd2;
   --color-toggle-thumb: #ffffff;
-  --color-threshold-bg: #dedfe1;
   --color-glitch-red: var(--color-danger);
   --color-glitch-cyan: var(--color-primary);
   --color-glitch-white: #ffffff;
@@ -526,22 +525,6 @@ button {
 
 .toggle input:checked + .toggle-track::before {
   transform: translateX(15px);
-}
-
-.threshold-pill {
-  justify-self: start;
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 17px;
-  padding: 0 2px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-threshold-bg);
-  color: var(--color-text);
-  font-size: 10px;
-  line-height: 1;
-  text-align: center;
 }
 
 .glitch-button {
