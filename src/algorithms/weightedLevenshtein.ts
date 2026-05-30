@@ -172,7 +172,7 @@ function deletionCost(char: string): number {
     return deletionCosts.get(char) ?? DEFAULT_DELETION_COST;
 }
 
-return {
+    return {
         substitutionCost,
         insertionCost,
         deletionCost,
@@ -189,4 +189,43 @@ export function tokenizeGraphemes(text: string): string[] {
     }
 
     return Array.from(text);
+}
+
+export function weightedLevenshtein(
+    source: string,
+    target: string,
+    unicodeForm: Model.UnicodeForm = "NFC"
+): number {
+    const normalization = unicodeForm;
+
+    const s = tokenizeGraphemes(source.normalize(normalization));
+    const t = tokenizeGraphemes(target.normalize(normalization));
+
+    const n = s.length;
+    const m = t.length;
+
+    let costModel: Model.CostModel = createFixedCostModel();
+
+    let previous = new Array<number>(m + 1).fill(0);
+    let current = new Array<number>(m + 1).fill(0);
+
+    for (let j = 1; j <= m; j++) {
+        previous[j] = previous[j - 1] + costModel.insertionCost(t[j - 1]);
+    }
+
+    for (let i = 1; i <= n; i++) {
+        current[0] = previous[0] + costModel.deletionCost(s[i - 1]);
+
+        for (let j = 1; j <= m; j++) {
+            const deleteCost = previous[j] + costModel.deletionCost(s[i - 1]);
+            const insertCost = current[j - 1] + costModel.insertionCost(t[j - 1]);
+            const substituteCost = previous[j - 1] + costModel.substitutionCost(s[i - 1], t[j - 1]);
+
+            current[j] = Math.min(deleteCost, insertCost, substituteCost);
+        }
+
+        [previous, current] = [current, previous];
+    }
+
+    return previous[m];
 }
