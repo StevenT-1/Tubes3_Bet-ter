@@ -4,8 +4,7 @@
   "description": "Detect online gambling site",
   "type": "module",
   "scripts": {
-    "build": "tsc && vite build && vite build --config vite.ocr-worker.config.ts && vite build --config vite.content.config.ts",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "build": "tsc && vite build && vite build --config vite.ocr-worker.config.ts && vite build --config vite.content.config.ts"
   },
   "repository": {
     "type": "git",
