@@ -10,7 +10,7 @@ const BLOCKED_TEXT_SELECTOR = [
   "input",
   "select",
   "option",
-  '[contenteditable="true"]',
+  "[contenteditable]",
   `.${TEXT_MARK_CLASS}`,
   `.${TEXT_TOOLTIP_CLASS}`,
 ].join(", ");

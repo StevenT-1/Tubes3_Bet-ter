@@ -17,7 +17,7 @@ function borderFunction (keyword: string): number[]
             let match = true;
             for (prefId = 0, suffId = k - wlth; prefId < wlth; prefId++, suffId++)
             {
-                if(keyword[prefId] != keyword[suffId])
+                if(keyword[prefId] !== keyword[suffId])
                 {
                     match = false;
                     break;
@@ -41,10 +41,14 @@ export function searchKMP (
     let start = performance.now();
     let finRes: MatchResult[] = [];
     let keyword:string;
-    let keyCount = 0;
     let comparisonCount = 0;
     for (keyword of keywords)
     {
+        if (keyword.length === 0)
+        {
+            continue;
+        }
+
         let sText: string = text;
         let cKeyword: string = keyword;
         let resIdx: number[] = [];
@@ -62,7 +66,8 @@ export function searchKMP (
 
         while (tIdx < tl)
         {
-            if (cKeyword[keyIdx] == sText[tIdx])
+            ++comparisonCount;
+            if (cKeyword[keyIdx] === sText[tIdx])
             {
                 if (keyIdx >= keyl - 1)
                 {
@@ -71,7 +76,6 @@ export function searchKMP (
                 }
                 ++keyIdx;
                 ++tIdx;
-                ++comparisonCount;
             }
             else
             {
@@ -82,7 +86,6 @@ export function searchKMP (
                 else
                 {
                     ++tIdx;
-                    ++comparisonCount;
                 }
             }
         }
@@ -93,14 +96,13 @@ export function searchKMP (
             (
                 matchResultGenerator
                 (
-                    cKeyword,
+                    keyword,
                     text.slice(r, r + keyl),
                     r,
                     r + keyl - 1
                 )
             )
         }
-        ++keyCount;
     }
     let end = performance.now();
     let algoRes: AlgorithmResult = (

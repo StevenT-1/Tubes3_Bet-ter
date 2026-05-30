@@ -9,6 +9,7 @@ export type ScanSettings = {
   highlight: boolean;
   blurText: boolean;
   ocr: boolean;
+  runRabinKarp: boolean;
   fuzzyThreshold: number;
 };
 
@@ -51,11 +52,13 @@ export type OcrImageRequest = {
 
 export type OcrRequestMessage = {
   type: typeof BETTER_OCR_REQUEST;
+  target: "background";
   images: OcrImageRequest[];
 };
 
 export type OcrExecuteRequestMessage = {
   type: typeof BETTER_OCR_EXECUTE_REQUEST;
+  target: "offscreen";
   images: OcrImageRequest[];
 };
 
@@ -111,5 +114,6 @@ export const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   highlight: true,
   blurText: false,
   ocr: false,
+  runRabinKarp: false,
   fuzzyThreshold: 0.7,
 };
