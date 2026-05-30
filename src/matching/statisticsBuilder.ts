@@ -36,7 +36,3 @@ export function buildStatistics(results: AlgorithmResult[]): StatisticChartRow[]
 export function countTotalMatches(results: AlgorithmResult[]): number {
   return results.reduce((total, result) => total + result.matches.length, 0);
 }
-
-export function sumExecutionTime(results: AlgorithmResult[]): number {
-  return results.reduce((total, result) => total + result.executionTimeMs, 0);
-}
