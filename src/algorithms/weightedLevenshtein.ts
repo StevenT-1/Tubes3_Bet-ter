@@ -1,6 +1,7 @@
 import * as Model from "./levenshteinModel";
+import { AlgorithmResult, MatchResult, MatchSource, matchResultGenerator, algorithmResultGenerator } from "./types";
 
-export function createFixedCostModel(): Model.CostModel {
+function createFixedCostModel(): Model.CostModel {
     const substitutionCosts = new Map<Model.PairKey, number>();
     const insertionCosts = new Map<string, number>();
     const deletionCosts = new Map<string, number>();
@@ -228,4 +229,88 @@ export function weightedLevenshtein(
     }
 
     return previous[m];
+}
+
+export function searchWeightedLevenshtein (
+    keywords: string[],
+    text: string,
+    sourceType: MatchSource,
+    caseInsensitive: boolean
+) : AlgorithmResult
+{
+    let start = performance.now();
+    let finRes: MatchResult[] = [];
+    let keyword:string;
+    let keyCount = 0;
+    let comparisonCount = 0;
+    for (keyword of keywords)
+    {
+        let sText: string = text;
+        let cKeyword: string = keyword;
+        let resIdx: number[] = [];
+        if (caseInsensitive)
+        {
+            cKeyword = keyword.toLowerCase();
+            sText = sText.toLowerCase();
+        }
+
+        let keyl = cKeyword.length;
+        let tl = sText.length;
+        let tIdx = 0;
+        let word: string = "";
+        let wordStartIdx: number = 0;
+
+        while (tIdx <= tl)
+        {
+            if (sText[tIdx] != " " && tIdx != tl)
+            {
+                word = word + sText[tIdx];
+            }
+            else
+            {
+                if (word.length > 0)
+                {
+                    ++comparisonCount;
+                    // console.log(word);
+                    if (Math.abs(word.length - cKeyword.length) < 4)
+                    {
+                        if (weightedLevenshtein(cKeyword, word) < (word.length / 2))
+                        {
+                            resIdx.push(wordStartIdx);
+                        }
+                    }
+                    word = "";
+                    wordStartIdx = tIdx + 1;
+                }
+            }
+            ++tIdx;
+        }
+
+        for (let r of resIdx)
+        {
+            finRes.push
+            (
+                matchResultGenerator
+                (
+                    keyword,
+                    text.slice(r, r + keyl),
+                    r,
+                    r + keyl - 1
+                )
+            )
+        }
+        ++keyCount;
+    }
+    let end = performance.now();
+    let algoRes: AlgorithmResult = (
+        algorithmResultGenerator
+        (
+            finRes,
+            end - start,
+            comparisonCount,
+            "Weighted-Levenshtein",
+            sourceType
+        )
+    )
+    return algoRes;
 }
