@@ -6,7 +6,6 @@ import {
   type ScanResponse,
 } from "../shared/messages";
 import { scanPage } from "./pageScanner";
-import { clearOcrImageMarks } from "../ocr/imageScanner";
 import { clearTextMarks } from "./textMarker";
 
 chrome.runtime.onMessage.addListener(
@@ -32,7 +31,6 @@ chrome.runtime.onMessage.addListener(
     if (message.type === BETTER_CLEAR_MESSAGE) {
       try {
         clearTextMarks();
-        clearOcrImageMarks();
         sendResponse({ ok: true });
       } catch (error) {
         sendResponse({ ok: false, error: friendlyError(error) });

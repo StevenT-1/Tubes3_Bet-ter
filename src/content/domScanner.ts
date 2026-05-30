@@ -1,4 +1,4 @@
-import { TEXT_MARK_CLASS } from "./textMarker";
+import { TEXT_MARK_CLASS, TEXT_TOOLTIP_CLASS } from "./textMarker";
 
 const MAX_TEXT_NODES_TO_SCAN = 2500;
 
@@ -12,6 +12,7 @@ const BLOCKED_TEXT_SELECTOR = [
   "option",
   '[contenteditable="true"]',
   `.${TEXT_MARK_CLASS}`,
+  `.${TEXT_TOOLTIP_CLASS}`,
 ].join(", ");
 
 export type TextNodeScan = {

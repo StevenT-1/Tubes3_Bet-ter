@@ -30,25 +30,15 @@ export async function scanPage(settings: ScanSettings): Promise<ScanResponse> {
   }
 
   const scanText = textNodes.map((entry) => entry.text).join("\n");
-  const algorithms = runTextAlgorithms(
-    scanText,
-    keywords,
-    "dom-text",
-    true,
-  );
-  const detectionResults: AlgorithmResult[] = [];
-  const primaryTextDetectionResult = selectPrimaryDetectionResult(algorithms);
-
-  if (primaryTextDetectionResult) {
-    detectionResults.push(primaryTextDetectionResult);
-  }
+  const algorithms = runTextAlgorithms(scanText, keywords, "dom-text", true);
+  const detectionResults = selectDetectionResults(algorithms);
 
   if (normalizedSettings.highlight || normalizedSettings.blurText) {
     markTextMatches(textNodes, keywords, normalizedSettings);
   }
 
   if (normalizedSettings.ocr) {
-    warnings.push("OCR image detection is not implemented yet.");
+    // warnings.push("OCR image detection is not implemented yet.");
   }
 
   const statistics = buildStatistics(detectionResults);
@@ -68,7 +58,9 @@ export async function scanPage(settings: ScanSettings): Promise<ScanResponse> {
   } satisfies ScanSuccessResponse;
 }
 
-function summarizeAlgorithms(results: AlgorithmResult[]): AlgorithmResultSummary[] {
+function summarizeAlgorithms(
+  results: AlgorithmResult[],
+): AlgorithmResultSummary[] {
   return results.map((result) => ({
     algorithm: result.algorithm,
     source: result.source,
@@ -78,18 +70,29 @@ function summarizeAlgorithms(results: AlgorithmResult[]): AlgorithmResultSummary
   }));
 }
 
-function selectPrimaryDetectionResult(
+function selectDetectionResults(
   results: AlgorithmResult[],
   source?: AlgorithmResult["source"],
-): AlgorithmResult | undefined {
+): AlgorithmResult[] {
   const sourceResults = source
     ? results.filter((result) => result.source === source)
     : results;
+  const primaryExactResult =
+    sourceResults.find((result) => result.algorithm === "KMP") ??
+    sourceResults.find((result) => result.algorithm === "Boyer-Moore") ??
+    sourceResults[0];
+  const regexResult = sourceResults.find(
+    (result) => result.algorithm === "Regex",
+  );
 
-  return sourceResults.find((result) => result.algorithm === "KMP") ?? sourceResults[0];
+  return [primaryExactResult, regexResult].filter(
+    (result): result is AlgorithmResult => Boolean(result),
+  );
 }
 
-function normalizeSettings(settings: Partial<ScanSettings> | undefined): ScanSettings {
+function normalizeSettings(
+  settings: Partial<ScanSettings> | undefined,
+): ScanSettings {
   return {
     highlight:
       typeof settings?.highlight === "boolean"

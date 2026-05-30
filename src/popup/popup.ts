@@ -72,13 +72,14 @@ type PopupState = {
   statistics: StatisticChartRow[];
   warnings: string[];
   settings: ScanSettings;
+  isMuted: boolean;
   isScanning: boolean;
 };
 
 type SettingRow =
   | {
       label: string;
-      key: "highlight" | "blurText" | "ocr";
+      key: "highlight" | "blurText" | "ocr" | "sound";
       kind: "toggle";
       checked: boolean;
     }
@@ -91,12 +92,20 @@ type SettingRow =
 const BETTER_SCAN_MESSAGE = "BETTER_SCAN";
 const BETTER_CLEAR_MESSAGE = "BETTER_CLEAR";
 const BETTER_SETTINGS_KEY = "better.detector.settings";
+const BETTER_AUDIO_MUTED_KEY = "better.detector.audioMuted";
+const POPUP_HEIGHT_RATIO = 0.75;
+const POPUP_BACKGROUND_WIDTH = 734;
+const POPUP_BACKGROUND_HEIGHT = 1194;
+const POPUP_MAX_HEIGHT = 600;
+const POPUP_FALLBACK_VIEWPORT_HEIGHT = 800;
 const DEFAULT_SCAN_SETTINGS: ScanSettings = {
   highlight: true,
   blurText: false,
   ocr: true,
   fuzzyThreshold: 0.7,
 };
+const DEFAULT_AUDIO_MUTED = true;
+const TOGGLE_RESCAN_DELAY_MS = 700;
 
 const PALETTE_CYAN = "#39c2ef";
 const PALETTE_PINK = "#f9169c";
@@ -248,7 +257,9 @@ const GLITCH_FRAMES: GlitchFrame[] = [
   },
 ];
 
-const PALETTE_VARIABLES: Array<[Exclude<keyof Palette, "particleColors">, string]> = [
+const PALETTE_VARIABLES: Array<
+  [Exclude<keyof Palette, "particleColors">, string]
+> = [
   ["primaryButton", "--color-primary"],
   ["dangerButton", "--color-danger"],
   ["toggleOn", "--color-toggle-on"],
@@ -271,18 +282,19 @@ const appState: PopupState = {
   statistics: [],
   warnings: [],
   settings: { ...DEFAULT_SCAN_SETTINGS },
+  isMuted: DEFAULT_AUDIO_MUTED,
   isScanning: false,
 };
 
 const glitchControllers: GlitchButtonController[] = [];
 const statisticRowInteractionCleanups: Array<() => void> = [];
 const audioCache = new Map<string, HTMLAudioElement>();
+const audioElements = new Set<HTMLAudioElement>();
 const audioContext = createResumeAudioContext();
 let activeStatisticBackdrop: HTMLElement | null = null;
 let activeStatisticPopup: HTMLElement | null = null;
 let activeStatisticDetailBackdrop: HTMLElement | null = null;
 let activeStatisticDetailPopup: HTMLElement | null = null;
-let popupFitFrame: number | null = null;
 
 class GlitchButtonController {
   private readonly button: HTMLButtonElement;
@@ -380,7 +392,10 @@ class GlitchButtonController {
     this.button.style.setProperty("--button-bg-image", backgroundImage);
     this.button.style.setProperty("--button-font", frame.font);
     this.button.style.setProperty("--button-font-size", frame.fontSize);
-    this.button.style.setProperty("--button-letter-spacing", frame.letterSpacing);
+    this.button.style.setProperty(
+      "--button-letter-spacing",
+      frame.letterSpacing,
+    );
     this.button.style.setProperty("--button-text-y", frame.textY);
   }
 
@@ -448,6 +463,7 @@ function createAudio(
   audio.src = config.src;
   audio.volume = toAudioVolume(config.volume, 1);
   audio.loop = Boolean(options.loop);
+  audioElements.add(audio);
   return audio;
 }
 
@@ -492,12 +508,23 @@ async function resumeAudio(): Promise<void> {
 }
 
 function playAudioElement(audio: HTMLAudioElement): void {
+  if (appState.isMuted) {
+    return;
+  }
+
   void resumeAudio()
     .then(() => {
       audio.currentTime = 0;
       return audio.play();
     })
     .catch(() => undefined);
+}
+
+function stopAllAudio(): void {
+  for (const audio of audioElements) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
 }
 
 function readButtonSound(button: HTMLElement): SoundConfig {
@@ -521,7 +548,10 @@ function scrambleGlitchSlices(target: HTMLElement): void {
   target.style.setProperty("--red-y", `${randomBetween(-15, 15)}px`);
   target.style.setProperty("--cyan-x", `${randomBetween(-30, 30)}px`);
   target.style.setProperty("--cyan-y", `${randomBetween(-15, 15)}px`);
-  target.style.setProperty("--red-opacity", String(randomBetween(35, 95) / 100));
+  target.style.setProperty(
+    "--red-opacity",
+    String(randomBetween(35, 95) / 100),
+  );
   target.style.setProperty(
     "--cyan-opacity",
     String(randomBetween(35, 95) / 100),
@@ -598,7 +628,10 @@ function createParticle(
   );
   particle.style.setProperty("--particle-drift-x", `${driftX}px`);
   particle.style.setProperty("--particle-drift-y", `${driftY}px`);
-  particle.style.setProperty("--particle-rotate", `${randomBetween(-35, 35)}deg`);
+  particle.style.setProperty(
+    "--particle-rotate",
+    `${randomBetween(-35, 35)}deg`,
+  );
   particle.style.setProperty("--particle-duration", `${duration}ms`);
 
   particleField.append(particle);
@@ -614,7 +647,10 @@ function createClickParticleField(className = ""): HTMLSpanElement {
   return particleField;
 }
 
-function toAudioVolume(value: string | number | undefined, fallback: number): number {
+function toAudioVolume(
+  value: string | number | undefined,
+  fallback: number,
+): number {
   const parsedValue = Number(value);
 
   if (!Number.isFinite(parsedValue)) {
@@ -626,7 +662,10 @@ function toAudioVolume(value: string | number | undefined, fallback: number): nu
 
 function applyColorPalette(palette: Palette): void {
   for (const [paletteKey, cssVariable] of PALETTE_VARIABLES) {
-    document.documentElement.style.setProperty(cssVariable, palette[paletteKey]);
+    document.documentElement.style.setProperty(
+      cssVariable,
+      palette[paletteKey],
+    );
   }
 }
 
@@ -634,6 +673,28 @@ function applyStatisticAnimationConfig(): void {
   document.documentElement.style.setProperty(
     "--stat-bar-animation-duration",
     `${STAT_BAR_ANIMATION_MS}ms`,
+  );
+}
+
+function applyPopupDimensions(): void {
+  const viewportHeight =
+    window.screen.availHeight ||
+    window.screen.height ||
+    POPUP_FALLBACK_VIEWPORT_HEIGHT;
+  const popupHeight = Math.round(
+    Math.min(viewportHeight * POPUP_HEIGHT_RATIO, POPUP_MAX_HEIGHT),
+  );
+  const popupWidth = Math.round(
+    popupHeight * (POPUP_BACKGROUND_WIDTH / POPUP_BACKGROUND_HEIGHT),
+  );
+
+  document.documentElement.style.setProperty(
+    "--popup-height",
+    `${popupHeight}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--popup-width",
+    `${popupWidth}px`,
   );
 }
 
@@ -655,26 +716,7 @@ function getAppRoot(): HTMLElement {
 }
 
 function schedulePopupViewportFit(): void {
-  if (popupFitFrame !== null) {
-    window.cancelAnimationFrame(popupFitFrame);
-  }
-
-  popupFitFrame = window.requestAnimationFrame(fitPopupToViewport);
-}
-
-function fitPopupToViewport(): void {
-  popupFitFrame = null;
-
-  const app = getAppRoot();
-  const viewport = window.visualViewport;
-  const viewportHeight = viewport?.height ?? window.innerHeight;
-  const viewportWidth = viewport?.width ?? window.innerWidth;
-  const naturalHeight = Math.max(app.scrollHeight, app.offsetHeight, 1);
-  const naturalWidth = Math.max(app.scrollWidth, app.offsetWidth, 1);
-  const rawScale = Math.min(1, viewportHeight / naturalHeight, viewportWidth / naturalWidth);
-  const fittedScale = Math.max(0.1, Math.floor(rawScale * 1000) / 1000);
-
-  app.style.setProperty("--popup-fit-scale", String(fittedScale));
+  applyPopupDimensions();
 }
 
 function renderApp(): void {
@@ -687,7 +729,9 @@ function renderMainView(): void {
   resetAllButtonInteractions();
   glitchControllers.length = 0;
 
-  app.replaceChildren(
+  const content = document.createElement("div");
+  content.className = "popup-content";
+  content.append(
     createBrand(),
     createStatusBlock(),
     createActionRow(),
@@ -696,8 +740,11 @@ function renderMainView(): void {
     createStatisticRow(),
     createSettingsSection(),
   );
+  app.replaceChildren(content);
 
-  for (const button of app.querySelectorAll<HTMLButtonElement>(".glitch-button")) {
+  for (const button of app.querySelectorAll<HTMLButtonElement>(
+    ".glitch-button",
+  )) {
     const controller = new GlitchButtonController(button);
     controller.connect();
     glitchControllers.push(controller);
@@ -729,7 +776,10 @@ function renderStatisticDetailView(row: StatisticChartRow): void {
   );
 }
 
-function showStatisticPopup(content: HTMLElement[], modifierClass: string): void {
+function showStatisticPopup(
+  content: HTMLElement[],
+  modifierClass: string,
+): void {
   const app = getAppRoot();
   const backdrop = document.createElement("div");
   const popup = document.createElement("section");
@@ -922,7 +972,10 @@ function createStatisticRow(): HTMLElement {
   return row;
 }
 
-function createStatisticHeader(title: string, onClose: () => void): HTMLElement {
+function createStatisticHeader(
+  title: string,
+  onClose: () => void,
+): HTMLElement {
   const header = document.createElement("header");
   const heading = document.createElement("h1");
   const closeButton = document.createElement("button");
@@ -986,7 +1039,10 @@ function createStatisticChart(): HTMLElement {
     value.className = "stat-chart-value";
     value.textContent = "0";
 
-    const stopStatisticGlitch = connectStatisticRowGlitch(button, particleField);
+    const stopStatisticGlitch = connectStatisticRowGlitch(
+      button,
+      particleField,
+    );
     statisticRowInteractionCleanups.push(stopStatisticGlitch);
 
     barFill.append(value);
@@ -1152,6 +1208,12 @@ function getSettingsRows(): SettingRow[] {
       kind: "threshold",
       value: appState.settings.fuzzyThreshold.toFixed(1),
     },
+    {
+      label: "Sound",
+      kind: "toggle",
+      key: "sound",
+      checked: !appState.isMuted,
+    },
   ];
 }
 
@@ -1202,7 +1264,9 @@ function createGlitchButton(config: GlitchButtonConfig): HTMLButtonElement {
   return button;
 }
 
-function createToggle(setting: Extract<SettingRow, { kind: "toggle" }>): HTMLElement {
+function createToggle(
+  setting: Extract<SettingRow, { kind: "toggle" }>,
+): HTMLElement {
   const wrapper = document.createElement("label");
   const toggleSound = createAudio(SOUND_CONFIG.toggle);
   const particleField = createClickParticleField("toggle-particle-field");
@@ -1213,6 +1277,20 @@ function createToggle(setting: Extract<SettingRow, { kind: "toggle" }>): HTMLEle
   input.type = "checkbox";
   input.checked = setting.checked;
   input.addEventListener("change", () => {
+    if (setting.key === "sound") {
+      appState.isMuted = !input.checked;
+
+      if (appState.isMuted) {
+        resetAllButtonInteractions();
+        stopAllAudio();
+      }
+
+      emitParticles(particleField, CLICK_BURST_PARTICLES);
+      playAudioElement(toggleSound);
+      void saveAudioMuted(appState.isMuted);
+      return;
+    }
+
     appState.settings = {
       ...appState.settings,
       [setting.key]: input.checked,
@@ -1220,7 +1298,9 @@ function createToggle(setting: Extract<SettingRow, { kind: "toggle" }>): HTMLEle
     emitParticles(particleField, CLICK_BURST_PARTICLES);
     playAudioElement(toggleSound);
     void saveSettings(appState.settings);
-    void scanActiveTab();
+    window.setTimeout(() => {
+      void scanActiveTab();
+    }, TOGGLE_RESCAN_DELAY_MS);
   });
 
   const track = document.createElement("span");
@@ -1300,7 +1380,6 @@ async function clearActiveTab(): Promise<void> {
     appState.warnings = [];
   } catch (error) {
     appState.status = friendlyErrorMessage(error);
-    appState.warnings = ["Open a regular web page, then try again."];
   } finally {
     renderApp();
   }
@@ -1331,18 +1410,6 @@ function applyScanError(error: unknown): void {
 
 function friendlyErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-
-  if (
-    message.includes("Receiving end does not exist") ||
-    message.includes("Could not establish connection")
-  ) {
-    return "Cannot scan this page";
-  }
-
-  if (message.includes("No active tab")) {
-    return "No active page";
-  }
-
   return message || "Scan failed";
 }
 
@@ -1374,21 +1441,25 @@ function sendTabMessage<TResponse>(
   }
 
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response: TResponse | undefined) => {
-      const error = chrome.runtime.lastError;
+    chrome.tabs.sendMessage(
+      tabId,
+      message,
+      (response: TResponse | undefined) => {
+        const error = chrome.runtime.lastError;
 
-      if (error) {
-        reject(new Error(error.message));
-        return;
-      }
+        if (error) {
+          reject(new Error(error.message));
+          return;
+        }
 
-      if (response === undefined) {
-        reject(new Error("The page did not return a scan response."));
-        return;
-      }
+        if (response === undefined) {
+          reject(new Error("The page did not return a scan response."));
+          return;
+        }
 
-      resolve(response);
-    });
+        resolve(response);
+      },
+    );
   });
 }
 
@@ -1432,7 +1503,9 @@ function loadSettings(): Promise<ScanSettings> {
 
   return new Promise((resolve) => {
     chrome.storage.sync.get(BETTER_SETTINGS_KEY, (items) => {
-      const storedSettings = items[BETTER_SETTINGS_KEY] as Partial<ScanSettings> | undefined;
+      const storedSettings = items[BETTER_SETTINGS_KEY] as
+        | Partial<ScanSettings>
+        | undefined;
       resolve(normalizeSettings(storedSettings));
     });
   });
@@ -1450,7 +1523,36 @@ function saveSettings(settings: ScanSettings): Promise<void> {
   });
 }
 
-function normalizeSettings(settings: Partial<ScanSettings> | undefined): ScanSettings {
+function loadAudioMuted(): Promise<boolean> {
+  if (typeof chrome === "undefined" || !chrome.storage?.sync) {
+    return Promise.resolve(DEFAULT_AUDIO_MUTED);
+  }
+
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(BETTER_AUDIO_MUTED_KEY, (items) => {
+      const storedValue = items[BETTER_AUDIO_MUTED_KEY];
+      resolve(
+        typeof storedValue === "boolean" ? storedValue : DEFAULT_AUDIO_MUTED,
+      );
+    });
+  });
+}
+
+function saveAudioMuted(isMuted: boolean): Promise<void> {
+  if (typeof chrome === "undefined" || !chrome.storage?.sync) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    chrome.storage.sync.set({ [BETTER_AUDIO_MUTED_KEY]: isMuted }, () => {
+      resolve();
+    });
+  });
+}
+
+function normalizeSettings(
+  settings: Partial<ScanSettings> | undefined,
+): ScanSettings {
   return {
     highlight:
       typeof settings?.highlight === "boolean"
@@ -1476,10 +1578,12 @@ function randomBetween(min: number, max: number): number {
 }
 
 async function initializePopup(): Promise<void> {
+  applyPopupDimensions();
   applyColorPalette(COLOR_PALETTE);
   applyStatisticAnimationConfig();
   preloadGlitchFrames();
   appState.settings = await loadSettings();
+  appState.isMuted = await loadAudioMuted();
   renderApp();
   await scanActiveTab();
 }
