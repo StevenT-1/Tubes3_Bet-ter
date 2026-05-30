@@ -1,6 +1,16 @@
 import * as Model from "./levenshteinModel";
 import { AlgorithmResult, MatchResult, MatchSource, matchResultGenerator, algorithmResultGenerator } from "./types";
 
+function containsChar(group: string[], target: string): boolean {
+    for (let i = 0; i < group.length; i++) {
+        if (group[i] === target) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function createFixedCostModel(): Model.CostModel {
     const substitutionCosts = new Map<Model.PairKey, number>();
     const insertionCosts = new Map<string, number>();
@@ -33,13 +43,13 @@ function createFixedCostModel(): Model.CostModel {
     ]);
 
     for (const char of allCharacters) {
-        if (Model.WHITESPACE.includes(char)) {
+        if (containsChar(Model.WHITESPACE, char)) {
             insertionCosts.set(char, WHITESPACE_INSERT_DELETE_COST);
             deletionCosts.set(char, WHITESPACE_INSERT_DELETE_COST);
-        } else if (Model.SYMBOLS.includes(char)) {
+        } else if (containsChar(Model.SYMBOLS, char)) {
             insertionCosts.set(char, SYMBOL_INSERT_DELETE_COST);
             deletionCosts.set(char, SYMBOL_INSERT_DELETE_COST);
-        } else if (Model.DIGITS.includes(char)) {
+        } else if (containsChar(Model.DIGITS, char)) {
             insertionCosts.set(char, DIGIT_INSERT_DELETE_COST);
             deletionCosts.set(char, DIGIT_INSERT_DELETE_COST);
         } else {
@@ -274,7 +284,7 @@ export function searchWeightedLevenshtein (
                     // console.log(word);
                     if (Math.abs(word.length - cKeyword.length) < 4)
                     {
-                        if (weightedLevenshtein(cKeyword, word) < (word.length / 2))
+                        if (weightedLevenshtein(cKeyword, word) < (word.length / 4))
                         {
                             resIdx.push(wordStartIdx);
                         }
