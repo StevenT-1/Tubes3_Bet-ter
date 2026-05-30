@@ -22,7 +22,7 @@ export function searchRegex(
     const prefix = result[1] ?? "";
     const matchedText = result[2] ?? "";
     const startIndex = result.index + prefix.length;
-    const keyword = caseInsensitive ? matchedText.toLowerCase() : matchedText;
+    const keyword = matchedText;
 
     if (!matchedText) {
       continue;
