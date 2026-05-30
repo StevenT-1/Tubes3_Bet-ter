@@ -7,8 +7,9 @@ export default defineConfig({
     emptyOutDir: true,
     rolldownOptions: {
       input: {
-        content: "src/content/content.ts",
-        popup: "src/popup/popup.ts"
+        popup: "src/popup/popup.ts",
+        background: "src/background/background.ts",
+        offscreen: "src/offscreen/offscreen.ts"
       },
       output: {
         entryFileNames: "[name].js",
